@@ -54,9 +54,30 @@ func main() {
 		logger.Error("creating key validation cache failed", "error", err)
 		os.Exit(1)
 	}
+	policyClient, err := controlplane.NewPolicyClient(
+		httpClient,
+		cfg.ControlPlaneURL,
+		cfg.ControlPlanePolicyPath,
+		cfg.InternalAPIToken,
+	)
+	if err != nil {
+		logger.Error("creating Control Plane policy client failed", "error", err)
+		os.Exit(1)
+	}
+	policyProvider, err := controlplane.NewCachedPolicyProvider(policyClient, cfg.PolicyCacheTTL)
+	if err != nil {
+		logger.Error("creating policy cache failed", "error", err)
+		os.Exit(1)
+	}
+	jwtValidator, err := proxycore.NewPolicyJWTValidator(policyProvider)
+	if err != nil {
+		logger.Error("creating JWT validator failed", "error", err)
+		os.Exit(1)
+	}
 	proxyHandler, err := proxycore.NewHandler(
 		cfg.BackendURL,
 		validator,
+		jwtValidator,
 		cfg.APIKeyHeader,
 		cfg.ValidationTimeout,
 		logger,

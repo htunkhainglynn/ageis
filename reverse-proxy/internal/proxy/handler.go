@@ -26,9 +26,14 @@ type KeyValidator interface {
 	ValidateKey(ctx context.Context, key string) (*KeyInfo, error)
 }
 
+type JWTValidator interface {
+	ValidateJWT(ctx context.Context, rawToken string) error
+}
+
 type Handler struct {
 	forwarder         *httputil.ReverseProxy
 	validator         KeyValidator
+	jwtValidator      JWTValidator
 	apiKeyHeader      string
 	validationTimeout time.Duration
 }
@@ -42,6 +47,7 @@ type errorBody struct {
 func NewHandler(
 	backendURL *url.URL,
 	validator KeyValidator,
+	jwtValidator JWTValidator,
 	apiKeyHeader string,
 	validationTimeout time.Duration,
 	logger *slog.Logger,
@@ -51,6 +57,9 @@ func NewHandler(
 	}
 	if validator == nil {
 		return nil, errors.New("key validator is required")
+	}
+	if jwtValidator == nil {
+		return nil, errors.New("JWT validator is required")
 	}
 	if strings.TrimSpace(apiKeyHeader) == "" {
 		return nil, errors.New("API key header is required")
@@ -71,6 +80,7 @@ func NewHandler(
 	return &Handler{
 		forwarder:         forwarder,
 		validator:         validator,
+		jwtValidator:      jwtValidator,
 		apiKeyHeader:      apiKeyHeader,
 		validationTimeout: validationTimeout,
 	}, nil
@@ -101,10 +111,45 @@ func (h *Handler) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
+	rawJWT, err := bearerToken(r.Header.Get("Authorization"))
+	if err != nil {
+		if errors.Is(err, ErrJWTMissing) {
+			writeError(w, http.StatusUnauthorized, "JWT_MISSING", "Authorization Bearer token is required.")
+		} else {
+			writeError(w, http.StatusUnauthorized, "JWT_INVALID", "The JWT is invalid.")
+		}
+		return
+	}
+	if err := h.jwtValidator.ValidateJWT(ctx, rawJWT); err != nil {
+		switch {
+		case errors.Is(err, ErrJWTMissing):
+			writeError(w, http.StatusUnauthorized, "JWT_MISSING", "Authorization Bearer token is required.")
+		case errors.Is(err, ErrJWTExpired):
+			writeError(w, http.StatusUnauthorized, "JWT_EXPIRED", "The JWT has expired.")
+		case errors.Is(err, ErrJWTInvalid):
+			writeError(w, http.StatusUnauthorized, "JWT_INVALID", "The JWT is invalid.")
+		default:
+			writeError(w, http.StatusBadGateway, "CONTROL_PLANE_UNAVAILABLE", "JWT validation policy is temporarily unavailable.")
+		}
+		return
+	}
+
 	forwardRequest := r.Clone(r.Context())
 	forwardRequest.Header = r.Header.Clone()
 	forwardRequest.Header.Del(h.apiKeyHeader)
+	forwardRequest.Header.Del("Authorization")
 	h.forwarder.ServeHTTP(w, forwardRequest)
+}
+
+func bearerToken(value string) (string, error) {
+	parts := strings.Fields(value)
+	if len(parts) == 0 {
+		return "", ErrJWTMissing
+	}
+	if len(parts) != 2 || !strings.EqualFold(parts[0], "Bearer") || parts[1] == "" {
+		return "", ErrJWTInvalid
+	}
+	return parts[1], nil
 }
 
 func writeError(w http.ResponseWriter, status int, code, message string) {

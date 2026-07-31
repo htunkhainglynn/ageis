@@ -12,9 +12,11 @@ import (
 const (
 	defaultListenAddr      = ":8080"
 	defaultValidationPath  = "/api/v1/api-keys/validate"
+	defaultPolicyPath      = "/api/v1/internal/proxy-config"
 	defaultAPIKeyHeader    = "X-API-Key"
 	defaultValidationTTL   = 30 * time.Second
 	defaultNegativeTTL     = 5 * time.Second
+	defaultPolicyTTL       = 30 * time.Second
 	defaultValidationTime  = 2 * time.Second
 	defaultShutdownTimeout = 10 * time.Second
 )
@@ -24,11 +26,13 @@ type Config struct {
 	BackendURL               *url.URL
 	ControlPlaneURL          *url.URL
 	ControlPlaneValidatePath string
+	ControlPlanePolicyPath   string
 	InternalAPIToken         string
 	APIKeyHeader             string
 	ValidationTimeout        time.Duration
 	ValidationCacheTTL       time.Duration
 	ValidationNegativeTTL    time.Duration
+	PolicyCacheTTL           time.Duration
 	ShutdownTimeout          time.Duration
 }
 
@@ -58,6 +62,10 @@ func Load() (Config, error) {
 	if err != nil {
 		return Config{}, err
 	}
+	policyCacheTTL, err := durationFromEnv("POLICY_CACHE_TTL", defaultPolicyTTL)
+	if err != nil {
+		return Config{}, err
+	}
 	shutdownTimeout, err := durationFromEnv("SHUTDOWN_TIMEOUT", defaultShutdownTimeout)
 	if err != nil {
 		return Config{}, err
@@ -67,17 +75,23 @@ func Load() (Config, error) {
 	if !strings.HasPrefix(validationPath, "/") {
 		return Config{}, errors.New("CONTROL_PLANE_VALIDATE_PATH must start with /")
 	}
+	policyPath := envOrDefault("CONTROL_PLANE_POLICY_PATH", defaultPolicyPath)
+	if !strings.HasPrefix(policyPath, "/") {
+		return Config{}, errors.New("CONTROL_PLANE_POLICY_PATH must start with /")
+	}
 
 	return Config{
 		ListenAddr:               envOrDefault("LISTEN_ADDR", defaultListenAddr),
 		BackendURL:               backendURL,
 		ControlPlaneURL:          controlPlaneURL,
 		ControlPlaneValidatePath: validationPath,
+		ControlPlanePolicyPath:   policyPath,
 		InternalAPIToken:         internalAPIToken,
 		APIKeyHeader:             envOrDefault("API_KEY_HEADER", defaultAPIKeyHeader),
 		ValidationTimeout:        validationTimeout,
 		ValidationCacheTTL:       cacheTTL,
 		ValidationNegativeTTL:    negativeTTL,
+		PolicyCacheTTL:           policyCacheTTL,
 		ShutdownTimeout:          shutdownTimeout,
 	}, nil
 }

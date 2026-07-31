@@ -54,6 +54,9 @@ Verified on 2026-07-31 against the actual monorepo:
 - Go reverse-proxy forwarding core, Control Plane API-key validation client,
   authenticated Control Plane API-key validation contract, local validation
   cache, and API-key middleware unit/integration tests.
+- Reverse-proxy JWT validation for HS256/RS256/ES256 with algorithm pinning,
+  required expiration, optional issuer/audience enforcement, credential
+  stripping, and stale-safe Control Plane policy caching.
 
 Current checkpoint verification:
 
@@ -71,7 +74,6 @@ Current checkpoint verification:
 
 ### Not implemented
 
-- Reverse-proxy JWT validation (the Control Plane policy contract is ready).
 - Redis-backed distributed rate limiting in the reverse proxy (the Control
   Plane policy contract is ready).
 - Manual IP blocking baseline.

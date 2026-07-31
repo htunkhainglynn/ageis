@@ -1,6 +1,7 @@
 package proxy_test
 
 import (
+	"context"
 	"io"
 	"log/slog"
 	"net/http"
@@ -118,6 +119,7 @@ func TestAPIKeyValidationAndForwardingIntegration(t *testing.T) {
 			handler, err := proxycore.NewHandler(
 				backendURL,
 				validator,
+				jwtValidatorFunc(func(context.Context, string) error { return nil }),
 				"X-API-Key",
 				time.Second,
 				slog.New(slog.NewTextHandler(io.Discard, nil)),
@@ -130,6 +132,7 @@ func TestAPIKeyValidationAndForwardingIntegration(t *testing.T) {
 				request := httptest.NewRequest(http.MethodGet, "http://proxy.example/orders/42?expand=items", nil)
 				if tt.apiKey != "" {
 					request.Header.Set("X-API-Key", tt.apiKey)
+					request.Header.Set("Authorization", "Bearer test-token")
 				}
 				recorder := httptest.NewRecorder()
 				handler.ServeHTTP(recorder, request)
@@ -155,4 +158,10 @@ func TestAPIKeyValidationAndForwardingIntegration(t *testing.T) {
 			}
 		})
 	}
+}
+
+type jwtValidatorFunc func(context.Context, string) error
+
+func (f jwtValidatorFunc) ValidateJWT(ctx context.Context, rawToken string) error {
+	return f(ctx, rawToken)
 }

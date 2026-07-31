@@ -20,6 +20,16 @@ type fakeValidator struct {
 	calls   atomic.Int32
 }
 
+type fakeJWTValidator struct {
+	err   error
+	calls atomic.Int32
+}
+
+func (f *fakeJWTValidator) ValidateJWT(_ context.Context, _ string) error {
+	f.calls.Add(1)
+	return f.err
+}
+
 func (f *fakeValidator) ValidateKey(_ context.Context, _ string) (*KeyInfo, error) {
 	f.calls.Add(1)
 	return f.keyInfo, f.err
@@ -32,6 +42,8 @@ func TestHandler(t *testing.T) {
 		name             string
 		apiKey           string
 		validationErr    error
+		jwtToken         string
+		jwtError         error
 		wantStatus       int
 		wantErrorCode    string
 		wantBackendCalls int32
@@ -41,7 +53,11 @@ func TestHandler(t *testing.T) {
 		{name: "revoked key", apiKey: "ak_revoked", validationErr: ErrKeyRevoked, wantStatus: http.StatusForbidden, wantErrorCode: "API_KEY_REVOKED"},
 		{name: "expired key", apiKey: "ak_expired", validationErr: ErrKeyExpired, wantStatus: http.StatusForbidden, wantErrorCode: "API_KEY_EXPIRED"},
 		{name: "validator unavailable", apiKey: "ak_valid", validationErr: ErrValidatorUnavailable, wantStatus: http.StatusBadGateway, wantErrorCode: "CONTROL_PLANE_UNAVAILABLE"},
-		{name: "valid key", apiKey: "ak_valid", wantStatus: http.StatusCreated, wantBackendCalls: 1},
+		{name: "missing JWT", apiKey: "ak_valid", wantStatus: http.StatusUnauthorized, wantErrorCode: "JWT_MISSING"},
+		{name: "invalid JWT", apiKey: "ak_valid", jwtToken: "invalid", jwtError: ErrJWTInvalid, wantStatus: http.StatusUnauthorized, wantErrorCode: "JWT_INVALID"},
+		{name: "expired JWT", apiKey: "ak_valid", jwtToken: "expired", jwtError: ErrJWTExpired, wantStatus: http.StatusUnauthorized, wantErrorCode: "JWT_EXPIRED"},
+		{name: "policy unavailable", apiKey: "ak_valid", jwtToken: "token", jwtError: ErrPolicyUnavailable, wantStatus: http.StatusBadGateway, wantErrorCode: "CONTROL_PLANE_UNAVAILABLE"},
+		{name: "valid credentials", apiKey: "ak_valid", jwtToken: "valid", wantStatus: http.StatusCreated, wantBackendCalls: 1},
 	}
 
 	for _, tt := range tests {
@@ -54,6 +70,9 @@ func TestHandler(t *testing.T) {
 				backendCalls.Add(1)
 				if received := r.Header.Get("X-API-Key"); received != "" {
 					t.Errorf("backend received API key header %q", received)
+				}
+				if received := r.Header.Get("Authorization"); received != "" {
+					t.Errorf("backend received Authorization header %q", received)
 				}
 				w.Header().Set("X-Upstream", "preserved")
 				w.WriteHeader(http.StatusCreated)
@@ -69,9 +88,11 @@ func TestHandler(t *testing.T) {
 				keyInfo: &KeyInfo{ID: 1, Status: "active"},
 				err:     tt.validationErr,
 			}
+			jwtValidator := &fakeJWTValidator{err: tt.jwtError}
 			handler, err := NewHandler(
 				backendURL,
 				validator,
+				jwtValidator,
 				"X-API-Key",
 				time.Second,
 				slog.New(slog.NewTextHandler(io.Discard, nil)),
@@ -83,6 +104,9 @@ func TestHandler(t *testing.T) {
 			req := httptest.NewRequest(http.MethodGet, "http://proxy.example/orders?limit=10", nil)
 			if tt.apiKey != "" {
 				req.Header.Set("X-API-Key", tt.apiKey)
+			}
+			if tt.jwtToken != "" {
+				req.Header.Set("Authorization", "Bearer "+tt.jwtToken)
 			}
 			recorder := httptest.NewRecorder()
 			handler.ServeHTTP(recorder, req)
@@ -119,6 +143,7 @@ func TestHandlerRespectsValidationTimeout(t *testing.T) {
 	handler, err := NewHandler(
 		backendURL,
 		validator,
+		&fakeJWTValidator{},
 		"X-API-Key",
 		10*time.Millisecond,
 		slog.New(slog.NewTextHandler(io.Discard, nil)),
@@ -148,27 +173,30 @@ func TestNewHandlerValidation(t *testing.T) {
 	backendURL, _ := url.Parse("http://backend.example")
 	logger := slog.New(slog.NewTextHandler(io.Discard, nil))
 	validator := &fakeValidator{}
+	jwtValidator := &fakeJWTValidator{}
 
 	tests := []struct {
 		name      string
 		backend   *url.URL
 		validator KeyValidator
+		jwt       JWTValidator
 		header    string
 		timeout   time.Duration
 		logger    *slog.Logger
 	}{
-		{name: "missing backend", validator: validator, header: "X-API-Key", timeout: time.Second, logger: logger},
-		{name: "missing validator", backend: backendURL, header: "X-API-Key", timeout: time.Second, logger: logger},
-		{name: "missing header", backend: backendURL, validator: validator, timeout: time.Second, logger: logger},
-		{name: "invalid timeout", backend: backendURL, validator: validator, header: "X-API-Key", logger: logger},
-		{name: "missing logger", backend: backendURL, validator: validator, header: "X-API-Key", timeout: time.Second},
+		{name: "missing backend", validator: validator, jwt: jwtValidator, header: "X-API-Key", timeout: time.Second, logger: logger},
+		{name: "missing validator", backend: backendURL, jwt: jwtValidator, header: "X-API-Key", timeout: time.Second, logger: logger},
+		{name: "missing JWT validator", backend: backendURL, validator: validator, header: "X-API-Key", timeout: time.Second, logger: logger},
+		{name: "missing header", backend: backendURL, validator: validator, jwt: jwtValidator, timeout: time.Second, logger: logger},
+		{name: "invalid timeout", backend: backendURL, validator: validator, jwt: jwtValidator, header: "X-API-Key", logger: logger},
+		{name: "missing logger", backend: backendURL, validator: validator, jwt: jwtValidator, header: "X-API-Key", timeout: time.Second},
 	}
 
 	for _, tt := range tests {
 		tt := tt
 		t.Run(tt.name, func(t *testing.T) {
 			t.Parallel()
-			if _, err := NewHandler(tt.backend, tt.validator, tt.header, tt.timeout, tt.logger); err == nil {
+			if _, err := NewHandler(tt.backend, tt.validator, tt.jwt, tt.header, tt.timeout, tt.logger); err == nil {
 				t.Fatal("expected error")
 			}
 		})
