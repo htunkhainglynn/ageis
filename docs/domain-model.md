@@ -46,7 +46,8 @@ Alembic migrations in the repo — this file is a map/summary, not canonical.
 
 ### IPBlock
 - id, ip_address (canonical exact IPv4 or IPv6 address), reason
-- source (manual | auto), status (active | disabled), created_by
+- source (manual | auto), status (active | disabled), created_by (nullable for
+  system-authored automatic blocks)
 - Constraint: only one active block for an address; historical disabled rows
   are retained
 

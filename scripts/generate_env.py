@@ -27,6 +27,9 @@ values = {
     "UPSTREAM_PORT": "9000",
     "GRPC_SYNC_INTERVAL_SECONDS": "2",
     "GRPC_RECONNECT_DELAY": "1s",
+    "AUTO_IP_BLOCK_ENABLED": "true",
+    "AUTO_IP_BLOCK_THRESHOLD": "5",
+    "AUTO_IP_BLOCK_WINDOW_SECONDS": "300",
 }
 
 for name, value in values.items():

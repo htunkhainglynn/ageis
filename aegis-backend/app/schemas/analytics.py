@@ -1,4 +1,5 @@
 from datetime import datetime
+from ipaddress import ip_address
 
 from pydantic import BaseModel, ConfigDict, Field, field_validator
 
@@ -16,6 +17,13 @@ class SecurityEventCreateRequest(BaseModel):
     @classmethod
     def normalize_method(cls, value: str) -> str:
         return value.strip().upper()
+
+    @field_validator("source_ip")
+    @classmethod
+    def normalize_source_ip(cls, value: str) -> str:
+        if value == "unknown":
+            return value
+        return str(ip_address(value.strip()))
 
 
 class SecurityEventResponse(BaseModel):

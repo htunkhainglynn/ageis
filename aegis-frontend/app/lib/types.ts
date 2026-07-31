@@ -60,7 +60,7 @@ export type IPBlock = {
   reason: string;
   source: "manual" | "auto";
   status: "active" | "disabled";
-  created_by: number;
+  created_by: number | null;
   created_at: string;
   updated_at: string;
 };

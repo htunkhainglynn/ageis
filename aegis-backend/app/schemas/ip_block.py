@@ -34,7 +34,7 @@ class IPBlockCreateInDB(BaseModel):
     reason: str
     source: str
     status: str
-    created_by: int
+    created_by: int | None
 
 
 class IPBlockUpdateInDB(BaseModel):
@@ -54,7 +54,7 @@ class IPBlockResponse(BaseModel):
     reason: str
     source: IPBlockSource
     status: IPBlockStatus
-    created_by: int
+    created_by: int | None
     created_at: datetime
     updated_at: datetime
 

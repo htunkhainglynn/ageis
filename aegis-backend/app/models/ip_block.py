@@ -56,4 +56,6 @@ class IPBlock(BaseModel):
         default=IPBlockStatus.ACTIVE.value,
         index=True,
     )
-    created_by: Mapped[int] = mapped_column(ForeignKey("users.id"), nullable=False, index=True)
+    created_by: Mapped[int | None] = mapped_column(
+        ForeignKey("users.id"), nullable=True, index=True
+    )

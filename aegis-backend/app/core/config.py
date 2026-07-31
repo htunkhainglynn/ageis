@@ -88,6 +88,9 @@ class Settings(BaseSettings):
     GRPC_PORT: int = 50051
     GRPC_SYNC_INTERVAL_SECONDS: float = 2.0
     GRPC_ENABLED: bool = True
+    AUTO_IP_BLOCK_ENABLED: bool = True
+    AUTO_IP_BLOCK_THRESHOLD: int = 5
+    AUTO_IP_BLOCK_WINDOW_SECONDS: int = 300
 
     LOG_LEVEL: str = "INFO"
 

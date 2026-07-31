@@ -69,3 +69,46 @@ async def test_security_event_ingestion_requires_internal_auth(
         },
     )
     assert response.status_code == status.HTTP_401_UNAUTHORIZED
+
+
+async def test_repeated_violations_create_one_automatic_ip_block(
+    client, seeded_users, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    monkeypatch.setattr(settings, "INTERNAL_API_TOKEN", "analytics-internal-token")
+    monkeypatch.setattr(settings, "AUTO_IP_BLOCK_ENABLED", True)
+    monkeypatch.setattr(settings, "AUTO_IP_BLOCK_THRESHOLD", 2)
+    monkeypatch.setattr(settings, "AUTO_IP_BLOCK_WINDOW_SECONDS", 300)
+
+    await _ingest(client, "threat_detected", 403)
+    await _ingest(client, "rate_limited", 429)
+    await _ingest(client, "threat_detected", 403)
+
+    blocks = await client.get("/api/v1/ip-blocks?status=active")
+    assert blocks.status_code == 200
+    matching = [
+        block
+        for block in blocks.json()["data"]["items"]
+        if block["ip_address"] == "203.0.113.80"
+    ]
+    assert len(matching) == 1
+    assert matching[0]["source"] == "auto"
+    assert matching[0]["created_by"] is None
+    assert "2 security violations" in matching[0]["reason"]
+
+
+async def test_event_ingestion_rejects_invalid_source_ip(
+    client, seeded_users, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    monkeypatch.setattr(settings, "INTERNAL_API_TOKEN", "analytics-internal-token")
+    response = await client.post(
+        "/api/v1/internal/security-events",
+        headers={"X-Aegis-Internal-Token": "analytics-internal-token"},
+        json={
+            "event_type": "threat_detected",
+            "source_ip": "not-an-ip",
+            "method": "GET",
+            "path": "/",
+            "status_code": 403,
+        },
+    )
+    assert response.status_code == status.HTTP_422_UNPROCESSABLE_ENTITY

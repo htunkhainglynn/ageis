@@ -34,6 +34,9 @@ export VALIDATION_NEGATIVE_CACHE_TTL=1s
 export POLICY_CACHE_TTL=5m
 export GRPC_SYNC_INTERVAL_SECONDS=0.25
 export GRPC_RECONNECT_DELAY=0.25s
+export AUTO_IP_BLOCK_ENABLED=true
+export AUTO_IP_BLOCK_THRESHOLD=2
+export AUTO_IP_BLOCK_WINDOW_SECONDS=300
 
 compose() {
   docker compose -f "$COMPOSE_FILE" "$@"
@@ -315,4 +318,23 @@ done
 [ "$analytics_attempts" -gt 0 ] ||
   fail "Proxy events did not appear in analytics within 30 seconds"
 
-echo "E2E passed: Control Plane -> gRPC policy sync -> reverse proxy -> upstream, including auth, threat/IP blocking, Redis rate limiting, and analytics."
+sleep 1
+
+auto_block_code=$(request "$TMP_DIR/auto-blocked.json" \
+  -H "X-API-Key: $RAW_API_KEY" \
+  -H "Authorization: Bearer $CLIENT_JWT" \
+  "$PROXY_URL/")
+[ "$auto_block_code" = "403" ] ||
+  fail "Automatically blocked source returned HTTP $auto_block_code"
+jq -e '.errorCode == "IP_BLOCKED"' "$TMP_DIR/auto-blocked.json" >/dev/null ||
+  fail "Automatic IP-block enforcement contract is incorrect"
+
+blocks_code=$(request "$TMP_DIR/ip-blocks.json" \
+  -H "Authorization: Bearer $ACCESS_TOKEN" \
+  "$CONTROL_URL/api/v1/ip-blocks?status=active&limit=100")
+[ "$blocks_code" = "200" ] || fail "IP-block listing returned HTTP $blocks_code"
+jq -e '.data.items | any(.source == "auto" and .status == "active")' \
+  "$TMP_DIR/ip-blocks.json" >/dev/null ||
+  fail "Automatic IP block was not persisted by the Control Plane"
+
+echo "E2E passed: Control Plane -> gRPC policy sync -> reverse proxy -> upstream, including auth, threat/manual/automatic IP blocking, Redis rate limiting, and analytics."

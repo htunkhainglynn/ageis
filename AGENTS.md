@@ -60,6 +60,10 @@ Verified on 2026-07-31 against the actual monorepo:
 - Authenticated server-streaming gRPC policy synchronization from the Control
   Plane to the proxy, with immediate in-memory updates, REST bootstrap/fallback,
   reconnect backoff, and indefinite enforcement of the last valid snapshot.
+- Automatic exact-IP blocking after a configurable number of recent threat or
+  rate-limit violations, with system-authored audit metadata, database
+  duplicate protection, gRPC distribution, dashboard visibility, and E2E
+  enforcement.
 - Authenticated internal policy snapshot returning only active JWT validation
   material and active rate-limit rules for the reverse proxy.
 - Dashboard login and configuration pages for users, API keys, rate limits,
@@ -81,7 +85,7 @@ Verified on 2026-07-31 against the actual monorepo:
 
 Current checkpoint verification:
 
-- Control Plane: 42 pytest tests pass, none skipped; all migrations apply
+- Control Plane: 44 pytest tests pass, none skipped; all migrations apply
   successfully to PostgreSQL.
 - Dashboard: lint, production build, and 6 Node tests pass, none skipped.
 - Reverse proxy baseline: `go test -race ./...` and `go vet ./...` pass.
@@ -90,9 +94,10 @@ Current checkpoint verification:
   manual block/unblock behavior for an actual Compose-network client and
   analytics verification for blocks, forwards, and rate limiting.
 
-### Not implemented
+### Explicitly out of scope
 
-- Automatic IP blocking.
+- Non-HTTP protocol support, offline/air-gapped deployment, and a native
+  mobile app are Won't Have requirements and are intentionally not built.
 
 ## Key Decisions & Rationale
 
@@ -153,6 +158,11 @@ Current checkpoint verification:
   This avoids duplicating every policy field across two serializers. REST
   supplies the initial/fallback snapshot; after the first stream update, a
   disconnect retains the last valid policy and reconnects with backoff.
+- **Automatic-block signal:** only `threat_detected` and `rate_limited` events
+  count toward the configurable per-source threshold/window. Authentication
+  mistakes and upstream errors never trigger lockout. Automatic blocks have no
+  human `created_by`, retain `source=auto`, and use the same soft-disable path
+  as manual blocks.
 
 ## Testing and Checkpoints
 

@@ -53,3 +53,14 @@ class SecurityEventRepository(
                 "errors": int(totals[4] or 0),
             },
         )
+
+    async def count_violations(self, source_ip: str, since: datetime) -> int:
+        """Count block-worthy violations from one direct source address."""
+        result = await self.db.execute(
+            select(func.count(SecurityEvent.id)).where(
+                SecurityEvent.source_ip == source_ip,
+                SecurityEvent.created_at >= since,
+                SecurityEvent.event_type.in_(("threat_detected", "rate_limited")),
+            )
+        )
+        return int(result.scalar_one())

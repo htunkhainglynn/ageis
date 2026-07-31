@@ -4,6 +4,7 @@ from sqlalchemy.ext.asyncio import AsyncSession
 from app.core.authorization import require_analytics_viewer, require_internal_api_token
 from app.core.database import get_db
 from app.models.user import User
+from app.repositories.ip_block_repository import IPBlockRepository
 from app.repositories.security_event_repository import SecurityEventRepository
 from app.schemas.analytics import (
     AnalyticsSummaryResponse,
@@ -18,7 +19,10 @@ router = APIRouter(tags=["Analytics"])
 
 
 def get_analytics_service(db: AsyncSession = Depends(get_db)) -> AnalyticsService:
-    return AnalyticsService(SecurityEventRepository(db))
+    return AnalyticsService(
+        SecurityEventRepository(db),
+        IPBlockRepository(db),
+    )
 
 
 @router.post(

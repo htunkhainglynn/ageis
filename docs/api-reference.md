@@ -47,6 +47,9 @@ Base path: `/api/v1/`. Keep this synchronized with the generated OpenAPI schema.
 - `GET /ip-blocks/{id}`
 - `PATCH /ip-blocks/{id}` — update reason/status; address and source immutable
 - `DELETE /ip-blocks/{id}` — soft delete (status=disabled)
+- Automatic blocks are created after the configured number of recent
+  `threat_detected`/`rate_limited` events and appear with `source=auto` and no
+  human `created_by`.
 
 ### Threat Rules (Admin)
 - `POST /threat-rules` — create an RE2-compatible request-target pattern
