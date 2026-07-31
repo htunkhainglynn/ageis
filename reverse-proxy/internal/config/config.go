@@ -24,6 +24,7 @@ type Config struct {
 	BackendURL               *url.URL
 	ControlPlaneURL          *url.URL
 	ControlPlaneValidatePath string
+	InternalAPIToken         string
 	APIKeyHeader             string
 	ValidationTimeout        time.Duration
 	ValidationCacheTTL       time.Duration
@@ -37,6 +38,10 @@ func Load() (Config, error) {
 		return Config{}, err
 	}
 	controlPlaneURL, err := requiredURL("CONTROL_PLANE_URL")
+	if err != nil {
+		return Config{}, err
+	}
+	internalAPIToken, err := requiredString("INTERNAL_API_TOKEN")
 	if err != nil {
 		return Config{}, err
 	}
@@ -68,12 +73,21 @@ func Load() (Config, error) {
 		BackendURL:               backendURL,
 		ControlPlaneURL:          controlPlaneURL,
 		ControlPlaneValidatePath: validationPath,
+		InternalAPIToken:         internalAPIToken,
 		APIKeyHeader:             envOrDefault("API_KEY_HEADER", defaultAPIKeyHeader),
 		ValidationTimeout:        validationTimeout,
 		ValidationCacheTTL:       cacheTTL,
 		ValidationNegativeTTL:    negativeTTL,
 		ShutdownTimeout:          shutdownTimeout,
 	}, nil
+}
+
+func requiredString(name string) (string, error) {
+	value := strings.TrimSpace(os.Getenv(name))
+	if value == "" {
+		return "", fmt.Errorf("%s is required", name)
+	}
+	return value, nil
 }
 
 func requiredURL(name string) (*url.URL, error) {

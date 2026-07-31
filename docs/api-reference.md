@@ -41,8 +41,16 @@ Base path: `/api/v1/`. Keep this synchronized with the generated OpenAPI schema.
 - `POST /jwt-configs/{id}/activate` — deactivates previous active config
 - `DELETE /jwt-configs/{id}` — soft delete; rejects the active config
 
+### Internal Reverse-Proxy Contract
+
+All internal routes require `X-Aegis-Internal-Token`, whose value is supplied
+to both components through the environment.
+
+- `POST /api-keys/validate` — verifies a presented raw key against prefix
+  candidates and bcrypt hashes; returns only enforcement metadata
+
 ## Not yet built
-- Internal proxy policy-validation endpoints
+- Internal JWT/rate-limit policy snapshot endpoints
 - Threat detection rule config endpoints
 - IP blocking rule endpoints
 - Metrics/analytics endpoints

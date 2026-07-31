@@ -50,19 +50,20 @@ Verified on 2026-07-31 against the actual monorepo:
   JWT configuration, system health, and an analytics placeholder. Navigation
   and route visibility follow the role matrix.
 - Go reverse-proxy forwarding core, Control Plane API-key validation client,
-  local validation cache, and API-key middleware unit/integration tests.
+  authenticated Control Plane API-key validation contract, local validation
+  cache, and API-key middleware unit/integration tests.
 
 Current checkpoint verification:
 
-- Control Plane: 25 pytest tests pass, none skipped; the role migration applies
+- Control Plane: 28 pytest tests pass, none skipped; the role migration applies
   successfully to PostgreSQL.
 - Dashboard: lint, production build, and 3 Node tests pass, none skipped.
 - Reverse proxy baseline: `go test -race ./...` and `go vet ./...` pass.
 
 ### Partially implemented
 
-- Reverse-proxy API-key enforcement has middleware and a client contract, but
-  the Control Plane validation endpoint and full Compose E2E path are missing.
+- Reverse-proxy API-key enforcement is implemented at both components, but the
+  real multi-process Compose E2E path has not yet been exercised.
 - Docker Compose provisions PostgreSQL and Redis, but does not yet run the full
   Control Plane -> proxy -> sample backend stack.
 
@@ -96,6 +97,9 @@ Current checkpoint verification:
 - **Initial proxy synchronization:** complete and prove REST-backed cached
   policy enforcement first. gRPC remains a Should Have optimization after all
   Must Haves work end-to-end.
+- **Authenticated internal contracts:** reverse-proxy REST calls use the
+  `X-Aegis-Internal-Token` header with an environment-only shared secret. This
+  prevents public use of key-validation and future raw policy-material APIs.
 
 ## Testing and Checkpoints
 

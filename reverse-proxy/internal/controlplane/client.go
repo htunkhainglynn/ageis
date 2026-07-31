@@ -18,8 +18,9 @@ import (
 const maxResponseBytes = 1 << 20
 
 type Client struct {
-	httpClient *http.Client
-	endpoint   *url.URL
+	httpClient    *http.Client
+	endpoint      *url.URL
+	internalToken string
 }
 
 type validationRequest struct {
@@ -37,7 +38,7 @@ type apiErrorResponse struct {
 	Message   string `json:"message"`
 }
 
-func NewClient(httpClient *http.Client, baseURL *url.URL, validationPath string) (*Client, error) {
+func NewClient(httpClient *http.Client, baseURL *url.URL, validationPath, internalToken string) (*Client, error) {
 	if httpClient == nil {
 		return nil, errors.New("HTTP client is required")
 	}
@@ -47,9 +48,16 @@ func NewClient(httpClient *http.Client, baseURL *url.URL, validationPath string)
 	if !strings.HasPrefix(validationPath, "/") {
 		return nil, errors.New("validation path must start with /")
 	}
+	if strings.TrimSpace(internalToken) == "" {
+		return nil, errors.New("internal API token is required")
+	}
 
 	endpoint := baseURL.ResolveReference(&url.URL{Path: validationPath})
-	return &Client{httpClient: httpClient, endpoint: endpoint}, nil
+	return &Client{
+		httpClient:    httpClient,
+		endpoint:      endpoint,
+		internalToken: internalToken,
+	}, nil
 }
 
 func (c *Client) ValidateKey(ctx context.Context, key string) (*proxycore.KeyInfo, error) {
@@ -62,6 +70,7 @@ func (c *Client) ValidateKey(ctx context.Context, key string) (*proxycore.KeyInf
 		return nil, fmt.Errorf("creating key validation request: %w", err)
 	}
 	req.Header.Set("Content-Type", "application/json")
+	req.Header.Set("X-Aegis-Internal-Token", c.internalToken)
 
 	resp, err := c.httpClient.Do(req)
 	if err != nil {
@@ -107,7 +116,10 @@ func classifyError(status int, body []byte) error {
 	_ = json.Unmarshal(body, &response)
 
 	switch {
-	case status == http.StatusNotFound || status == http.StatusUnauthorized:
+	case response.ErrorCode == "INTERNAL_API_UNAUTHORIZED":
+		return fmt.Errorf("%w: Control Plane rejected internal authentication", proxycore.ErrValidatorUnavailable)
+	case status == http.StatusNotFound ||
+		(status == http.StatusUnauthorized && response.ErrorCode == "API_KEY_NOT_FOUND"):
 		return proxycore.ErrKeyNotFound
 	case status == http.StatusForbidden && response.ErrorCode == "API_KEY_EXPIRED":
 		return proxycore.ErrKeyExpired

@@ -70,3 +70,22 @@ class APIKeyListResponse(BaseModel):
     skip: int
     limit: int
     total: int
+
+
+class APIKeyValidationRequest(BaseModel):
+    """Private reverse-proxy request carrying a presented API key."""
+
+    api_key: str = Field(min_length=8, max_length=512)
+
+
+class APIKeyValidationResponse(BaseModel):
+    """Non-secret key attributes required by the reverse proxy."""
+
+    model_config = ConfigDict(from_attributes=True)
+
+    id: int
+    key_prefix: str
+    owner_id: int
+    scopes: list[str]
+    status: APIKeyStatus
+    expires_at: datetime | None

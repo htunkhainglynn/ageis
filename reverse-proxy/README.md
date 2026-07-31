@@ -21,6 +21,7 @@ The proxy calls:
 ```http
 POST /api/v1/api-keys/validate
 Content-Type: application/json
+X-Aegis-Internal-Token: <environment-provided shared token>
 
 {"api_key":"ak_..."}
 ```
@@ -42,9 +43,10 @@ Successful response:
 }
 ```
 
-Expected errors are `404` or `401` for an unknown key and `403` with
-`API_KEY_REVOKED` or `API_KEY_EXPIRED`. The current FastAPI Control Plane does
-not yet expose this validation route; adding it is a separate backend change.
+Expected errors are `404` for an unknown key and `403` with
+`API_KEY_REVOKED` or `API_KEY_EXPIRED`. The FastAPI Control Plane exposes this
+private route only when `INTERNAL_API_TOKEN` is configured, and the proxy must
+send the same value.
 
 Validation results are cached in memory by a SHA-256 digest of the presented
 key. Raw API keys are never used as cache map keys.

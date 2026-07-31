@@ -1,8 +1,15 @@
-from fastapi import Depends
+import secrets
+
+from fastapi import Depends, Header
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.core.database import get_db
-from app.core.exceptions import ForbiddenException, UnauthorizedException
+from app.core.config import settings
+from app.core.exceptions import (
+    ForbiddenException,
+    ServiceUnavailableException,
+    UnauthorizedException,
+)
 from app.core.security import get_current_subject
 from app.models.user import User, UserRole
 from app.repositories.user_repository import UserRepository
@@ -56,3 +63,23 @@ async def require_api_key_manager(current_user: User = Depends(get_current_user)
             message="You are not allowed to manage API keys.",
         )
     return current_user
+
+
+async def require_internal_api_token(
+    internal_token: str | None = Header(
+        default=None,
+        alias="X-Aegis-Internal-Token",
+    ),
+) -> None:
+    """Authenticate reverse-proxy calls to private Control Plane contracts."""
+    expected_token = settings.INTERNAL_API_TOKEN.strip()
+    if expected_token == "":
+        raise ServiceUnavailableException(
+            error_code="INTERNAL_API_NOT_CONFIGURED",
+            message="Internal API authentication is not configured.",
+        )
+    if internal_token is None or not secrets.compare_digest(internal_token, expected_token):
+        raise UnauthorizedException(
+            error_code="INTERNAL_API_UNAUTHORIZED",
+            message="Internal API authentication failed.",
+        )

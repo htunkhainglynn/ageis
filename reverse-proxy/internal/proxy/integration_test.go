@@ -77,6 +77,9 @@ func TestAPIKeyValidationAndForwardingIntegration(t *testing.T) {
 				if r.URL.Path != "/api/v1/api-keys/validate" {
 					t.Errorf("Control Plane path = %s", r.URL.Path)
 				}
+				if r.Header.Get("X-Aegis-Internal-Token") != "test-internal-token" {
+					t.Error("Control Plane internal token header was not set")
+				}
 				w.Header().Set("Content-Type", "application/json")
 				w.WriteHeader(tt.controlStatus)
 				_, _ = w.Write([]byte(tt.controlBody))
@@ -98,7 +101,12 @@ func TestAPIKeyValidationAndForwardingIntegration(t *testing.T) {
 			t.Cleanup(backend.Close)
 
 			controlURL, _ := url.Parse(controlPlane.URL)
-			controlClient, err := controlplane.NewClient(controlPlane.Client(), controlURL, "/api/v1/api-keys/validate")
+			controlClient, err := controlplane.NewClient(
+				controlPlane.Client(),
+				controlURL,
+				"/api/v1/api-keys/validate",
+				"test-internal-token",
+			)
 			if err != nil {
 				t.Fatalf("create Control Plane client: %v", err)
 			}

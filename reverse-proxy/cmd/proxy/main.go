@@ -35,7 +35,12 @@ func main() {
 			ExpectContinueTimeout: time.Second,
 		},
 	}
-	controlPlaneClient, err := controlplane.NewClient(httpClient, cfg.ControlPlaneURL, cfg.ControlPlaneValidatePath)
+	controlPlaneClient, err := controlplane.NewClient(
+		httpClient,
+		cfg.ControlPlaneURL,
+		cfg.ControlPlaneValidatePath,
+		cfg.InternalAPIToken,
+	)
 	if err != nil {
 		logger.Error("creating Control Plane client failed", "error", err)
 		os.Exit(1)

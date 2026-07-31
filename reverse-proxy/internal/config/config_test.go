@@ -15,22 +15,25 @@ func TestLoad(t *testing.T) {
 		{
 			name: "valid minimum configuration",
 			env: map[string]string{
-				"BACKEND_URL":       "http://localhost:9000",
-				"CONTROL_PLANE_URL": "http://localhost:8000",
+				"BACKEND_URL":        "http://localhost:9000",
+				"CONTROL_PLANE_URL":  "http://localhost:8000",
+				"INTERNAL_API_TOKEN": "test-internal-token",
 			},
 		},
 		{
 			name: "missing backend",
 			env: map[string]string{
-				"CONTROL_PLANE_URL": "http://localhost:8000",
+				"CONTROL_PLANE_URL":  "http://localhost:8000",
+				"INTERNAL_API_TOKEN": "test-internal-token",
 			},
 			wantErr: "BACKEND_URL is required",
 		},
 		{
 			name: "invalid Control Plane scheme",
 			env: map[string]string{
-				"BACKEND_URL":       "http://localhost:9000",
-				"CONTROL_PLANE_URL": "ftp://localhost",
+				"BACKEND_URL":        "http://localhost:9000",
+				"CONTROL_PLANE_URL":  "ftp://localhost",
+				"INTERNAL_API_TOKEN": "test-internal-token",
 			},
 			wantErr: "must use http or https",
 		},
@@ -39,9 +42,18 @@ func TestLoad(t *testing.T) {
 			env: map[string]string{
 				"BACKEND_URL":        "http://localhost:9000",
 				"CONTROL_PLANE_URL":  "http://localhost:8000",
+				"INTERNAL_API_TOKEN": "test-internal-token",
 				"VALIDATION_TIMEOUT": "never",
 			},
 			wantErr: "parsing VALIDATION_TIMEOUT",
+		},
+		{
+			name: "missing internal token",
+			env: map[string]string{
+				"BACKEND_URL":       "http://localhost:9000",
+				"CONTROL_PLANE_URL": "http://localhost:8000",
+			},
+			wantErr: "INTERNAL_API_TOKEN is required",
 		},
 	}
 
@@ -49,6 +61,7 @@ func TestLoad(t *testing.T) {
 		t.Run(tt.name, func(t *testing.T) {
 			for _, name := range []string{
 				"BACKEND_URL", "CONTROL_PLANE_URL", "CONTROL_PLANE_VALIDATE_PATH",
+				"INTERNAL_API_TOKEN",
 				"VALIDATION_TIMEOUT", "VALIDATION_CACHE_TTL",
 				"VALIDATION_NEGATIVE_CACHE_TTL", "SHUTDOWN_TIMEOUT",
 			} {

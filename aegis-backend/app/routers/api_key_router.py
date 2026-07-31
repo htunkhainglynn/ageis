@@ -1,7 +1,7 @@
 from fastapi import APIRouter, Depends, Query, status
 from sqlalchemy.ext.asyncio import AsyncSession
 
-from app.core.authorization import require_api_key_manager
+from app.core.authorization import require_api_key_manager, require_internal_api_token
 from app.core.database import get_db
 from app.models.user import User
 from app.repositories.api_key_repository import APIKeyRepository
@@ -12,6 +12,8 @@ from app.schemas.api_key import (
     APIKeyListResponse,
     APIKeyMetadataResponse,
     APIKeyUpdateRequest,
+    APIKeyValidationRequest,
+    APIKeyValidationResponse,
 )
 from app.schemas.base import ApiResponse, success_response
 from app.services.api_key_service import APIKeyService
@@ -47,6 +49,22 @@ async def create_api_key(
         payload=payload,
     )
     return success_response(message="API key created successfully.", data=created_api_key)
+
+
+@router.post(
+    "/validate",
+    response_model=ApiResponse[APIKeyValidationResponse],
+    summary="Validate API key for the reverse proxy",
+    description="Private internal contract. Validates a raw key without returning it.",
+)
+async def validate_api_key(
+    payload: APIKeyValidationRequest,
+    _: None = Depends(require_internal_api_token),
+    api_key_service: APIKeyService = Depends(get_api_key_service),
+) -> ApiResponse[APIKeyValidationResponse]:
+    """Validate one presented key for data-plane enforcement."""
+    validated_key = await api_key_service.validate_api_key(payload.api_key)
+    return success_response(message="API key is valid.", data=validated_key)
 
 
 @router.get(

@@ -27,7 +27,7 @@ def register_exception_handlers(app: FastAPI) -> None:
     @app.exception_handler(RequestValidationError)
     async def validation_exception_handler(request: Request, exc: RequestValidationError) -> JSONResponse:
         """Handle request payload validation errors."""
-        logger.bind(path=request.url.path, method=request.method, errors=exc.errors()).opt(
+        logger.bind(path=request.url.path, method=request.method, error_count=len(exc.errors())).opt(
             exception=exc
         ).error("Validation error")
         return _build_error_response(

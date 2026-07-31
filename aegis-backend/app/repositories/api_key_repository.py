@@ -33,6 +33,13 @@ class APIKeyRepository(BaseRepository[APIKey, APIKeyCreateInDB, APIKeyUpdateInDB
         result = await self.db.execute(select(func.count(APIKey.id)))
         return int(result.scalar_one())
 
+    async def get_candidates_by_prefix(self, key_prefix: str) -> list[APIKey]:
+        """Return the small candidate set for constant-format key verification."""
+        result = await self.db.execute(
+            select(APIKey).where(APIKey.key_prefix == key_prefix)
+        )
+        return list(result.scalars().all())
+
     async def create_api_key(self, payload: APIKeyCreateInDB) -> APIKey:
         """Create a new API key record."""
         api_key = APIKey(**payload.model_dump())

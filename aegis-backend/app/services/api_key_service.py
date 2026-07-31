@@ -1,4 +1,5 @@
 import secrets
+from datetime import datetime, timezone
 
 from app.core.config import settings
 from app.core.exceptions import (
@@ -8,7 +9,7 @@ from app.core.exceptions import (
     UnauthorizedException,
 )
 from app.core.rate_limit import enforce_api_key_creation_rate_limit
-from app.core.security import hash_password
+from app.core.security import hash_password, verify_password
 from app.models.api_key import APIKey, APIKeyStatus
 from app.models.user import User, UserRole
 from app.repositories.api_key_repository import APIKeyRepository
@@ -21,6 +22,7 @@ from app.schemas.api_key import (
     APIKeyMetadataResponse,
     APIKeyUpdateInDB,
     APIKeyUpdateRequest,
+    APIKeyValidationResponse,
 )
 
 
@@ -181,3 +183,48 @@ class APIKeyService:
             api_key,
             APIKeyUpdateInDB(status=APIKeyStatus.REVOKED.value),
         )
+
+    async def validate_api_key(self, raw_key: str) -> APIKeyValidationResponse:
+        """Validate a presented raw key without persisting or returning it."""
+        key_prefix = raw_key[: settings.api_key.PREFIX_LENGTH]
+        candidates = await self.api_key_repository.get_candidates_by_prefix(key_prefix)
+
+        matched_key: APIKey | None = None
+        for candidate in candidates:
+            try:
+                if verify_password(raw_key, candidate.key_hash):
+                    matched_key = candidate
+                    break
+            except (TypeError, ValueError):
+                continue
+
+        if matched_key is None:
+            raise NotFoundException(
+                error_code="API_KEY_NOT_FOUND",
+                message="API key not found.",
+            )
+        if matched_key.status == APIKeyStatus.REVOKED.value:
+            raise ForbiddenException(
+                error_code="API_KEY_REVOKED",
+                message="API key has been revoked.",
+            )
+
+        now = datetime.now(timezone.utc)
+        expires_at = matched_key.expires_at
+        if expires_at is not None:
+            comparable_expiry = (
+                expires_at.replace(tzinfo=timezone.utc)
+                if expires_at.tzinfo is None
+                else expires_at
+            )
+            if comparable_expiry <= now:
+                raise ForbiddenException(
+                    error_code="API_KEY_EXPIRED",
+                    message="API key has expired.",
+                )
+
+        matched_key = await self.api_key_repository.update_api_key(
+            matched_key,
+            APIKeyUpdateInDB(last_used_at=now),
+        )
+        return APIKeyValidationResponse.model_validate(matched_key)

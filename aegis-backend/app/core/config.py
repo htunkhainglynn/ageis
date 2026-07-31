@@ -79,6 +79,7 @@ class Settings(BaseSettings):
     API_KEY_CREATE_RATE_WINDOW_SECONDS: int = 60
     API_KEY_ADMIN_ROLE_NAME: str = "admin"
     BOOTSTRAP_ADMIN_EMAILS: str = ""
+    INTERNAL_API_TOKEN: str = ""
 
     LOG_LEVEL: str = "INFO"
 

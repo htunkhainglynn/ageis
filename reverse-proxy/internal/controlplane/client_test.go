@@ -34,6 +34,12 @@ func TestClientValidateKey(t *testing.T) {
 			wantError: proxycore.ErrKeyNotFound,
 		},
 		{
+			name:      "internal authentication rejected",
+			status:    http.StatusUnauthorized,
+			body:      `{"status":"error","errorCode":"INTERNAL_API_UNAUTHORIZED","message":"unauthorized"}`,
+			wantError: proxycore.ErrValidatorUnavailable,
+		},
+		{
 			name:      "revoked key",
 			status:    http.StatusForbidden,
 			body:      `{"status":"error","errorCode":"API_KEY_REVOKED","message":"revoked"}`,
@@ -77,6 +83,9 @@ func TestClientValidateKey(t *testing.T) {
 				if r.URL.Path != "/api/v1/api-keys/validate" {
 					t.Errorf("path = %s", r.URL.Path)
 				}
+				if r.Header.Get("X-Aegis-Internal-Token") != "test-internal-token" {
+					t.Error("internal API token header was not set")
+				}
 				w.Header().Set("Content-Type", "application/json")
 				w.WriteHeader(tt.status)
 				_, _ = w.Write([]byte(tt.body))
@@ -84,7 +93,12 @@ func TestClientValidateKey(t *testing.T) {
 			t.Cleanup(server.Close)
 
 			baseURL, _ := url.Parse(server.URL)
-			client, err := NewClient(server.Client(), baseURL, "/api/v1/api-keys/validate")
+			client, err := NewClient(
+				server.Client(),
+				baseURL,
+				"/api/v1/api-keys/validate",
+				"test-internal-token",
+			)
 			if err != nil {
 				t.Fatalf("create client: %v", err)
 			}
@@ -114,7 +128,7 @@ func TestClientRejectsExpiredSuccessfulResponse(t *testing.T) {
 	}))
 	t.Cleanup(server.Close)
 	baseURL, _ := url.Parse(server.URL)
-	client, _ := NewClient(server.Client(), baseURL, "/validate")
+	client, _ := NewClient(server.Client(), baseURL, "/validate", "test-internal-token")
 
 	_, err := client.ValidateKey(context.Background(), "ak_expired")
 	if !errors.Is(err, proxycore.ErrKeyExpired) {
@@ -132,7 +146,7 @@ func TestClientDoesNotExposeKeyInURL(t *testing.T) {
 	}))
 	t.Cleanup(server.Close)
 	baseURL, _ := url.Parse(server.URL)
-	client, _ := NewClient(server.Client(), baseURL, "/validate")
+	client, _ := NewClient(server.Client(), baseURL, "/validate", "test-internal-token")
 
 	if _, err := client.ValidateKey(context.Background(), "ak_secret"); err != nil {
 		t.Fatalf("validate key: %v", err)

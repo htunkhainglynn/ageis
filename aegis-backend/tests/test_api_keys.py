@@ -1,12 +1,20 @@
 import pytest
+from datetime import datetime, timedelta, timezone
 from fastapi import status
 from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.main import app
+from app.core.config import settings
 from app.models.api_key import APIKey, APIKeyStatus
 
 pytestmark = pytest.mark.asyncio
+
+
+@pytest.fixture(autouse=True)
+def configure_internal_api_token(monkeypatch: pytest.MonkeyPatch) -> None:
+    """Use an ephemeral internal credential for proxy-contract tests."""
+    monkeypatch.setattr(settings, "INTERNAL_API_TOKEN", "test-internal-token")
 
 
 async def test_create_api_key_returns_raw_key_once(
@@ -148,3 +156,114 @@ async def test_viewer_cannot_access_api_key_management(client, seeded_users) -> 
     assert list_response.status_code == status.HTTP_403_FORBIDDEN
     assert create_response.status_code == status.HTTP_403_FORBIDDEN
     assert list_response.json()["errorCode"] == "API_KEY_FORBIDDEN"
+
+
+async def test_internal_validation_accepts_active_key_without_reexposing_it(
+    client,
+    db_session: AsyncSession,
+    seeded_users,
+) -> None:
+    """Verify the proxy contract checks bcrypt and returns non-secret policy data."""
+    create_response = await client.post(
+        "/api/v1/api-keys",
+        json={"name": "Proxy key", "scopes": ["orders:read"]},
+    )
+    raw_key = create_response.json()["data"]["api_key"]
+    key_id = create_response.json()["data"]["id"]
+
+    response = await client.post(
+        "/api/v1/api-keys/validate",
+        headers={"X-Aegis-Internal-Token": "test-internal-token"},
+        json={"api_key": raw_key},
+    )
+
+    assert response.status_code == status.HTTP_200_OK
+    data = response.json()["data"]
+    assert data["id"] == key_id
+    assert data["scopes"] == ["orders:read"]
+    assert "api_key" not in data
+    assert "key_hash" not in data
+    assert raw_key not in response.text
+
+    result = await db_session.execute(select(APIKey).where(APIKey.id == key_id))
+    assert result.scalar_one().last_used_at is not None
+
+
+async def test_internal_validation_requires_shared_credential(
+    client,
+    seeded_users,
+) -> None:
+    """Verify the validation oracle is unavailable to unauthenticated callers."""
+    create_response = await client.post(
+        "/api/v1/api-keys",
+        json={"name": "Protected validation key", "scopes": []},
+    )
+    raw_key = create_response.json()["data"]["api_key"]
+
+    missing_response = await client.post(
+        "/api/v1/api-keys/validate",
+        json={"api_key": raw_key},
+    )
+    wrong_response = await client.post(
+        "/api/v1/api-keys/validate",
+        headers={"X-Aegis-Internal-Token": "wrong-token"},
+        json={"api_key": raw_key},
+    )
+
+    assert missing_response.status_code == status.HTTP_401_UNAUTHORIZED
+    assert wrong_response.status_code == status.HTTP_401_UNAUTHORIZED
+    assert missing_response.json()["errorCode"] == "INTERNAL_API_UNAUTHORIZED"
+
+
+async def test_internal_validation_rejects_unknown_revoked_and_expired_keys(
+    client,
+    db_session: AsyncSession,
+    seeded_users,
+) -> None:
+    """Verify invalid key states map to the proxy client's documented errors."""
+    headers = {"X-Aegis-Internal-Token": "test-internal-token"}
+
+    unknown_response = await client.post(
+        "/api/v1/api-keys/validate",
+        headers=headers,
+        json={"api_key": "ak_unknown_key_material"},
+    )
+    assert unknown_response.status_code == status.HTTP_404_NOT_FOUND
+    assert unknown_response.json()["errorCode"] == "API_KEY_NOT_FOUND"
+
+    revoked_create = await client.post(
+        "/api/v1/api-keys",
+        json={"name": "Revoked proxy key", "scopes": []},
+    )
+    revoked_key = revoked_create.json()["data"]["api_key"]
+    await client.delete(f"/api/v1/api-keys/{revoked_create.json()['data']['id']}")
+    revoked_response = await client.post(
+        "/api/v1/api-keys/validate",
+        headers=headers,
+        json={"api_key": revoked_key},
+    )
+    assert revoked_response.status_code == status.HTTP_403_FORBIDDEN
+    assert revoked_response.json()["errorCode"] == "API_KEY_REVOKED"
+
+    expired_create = await client.post(
+        "/api/v1/api-keys",
+        json={
+            "name": "Expired proxy key",
+            "scopes": [],
+            "expires_at": (datetime.now(timezone.utc) + timedelta(days=1)).isoformat(),
+        },
+    )
+    expired_key = expired_create.json()["data"]["api_key"]
+    expired_id = expired_create.json()["data"]["id"]
+    result = await db_session.execute(select(APIKey).where(APIKey.id == expired_id))
+    stored_expired_key = result.scalar_one()
+    stored_expired_key.expires_at = datetime.now(timezone.utc) - timedelta(seconds=1)
+    await db_session.commit()
+
+    expired_response = await client.post(
+        "/api/v1/api-keys/validate",
+        headers=headers,
+        json={"api_key": expired_key},
+    )
+    assert expired_response.status_code == status.HTTP_403_FORBIDDEN
+    assert expired_response.json()["errorCode"] == "API_KEY_EXPIRED"
