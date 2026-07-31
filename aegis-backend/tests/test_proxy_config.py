@@ -66,6 +66,20 @@ async def test_proxy_snapshot_returns_active_jwt_and_rate_limit_policies(
     )
     assert active_rule.status_code == status.HTTP_201_CREATED
     assert disabled_rule.status_code == status.HTTP_201_CREATED
+    active_block = await client.post(
+        "/api/v1/ip-blocks",
+        json={"ip_address": "203.0.113.44", "reason": "Active proxy block"},
+    )
+    disabled_block = await client.post(
+        "/api/v1/ip-blocks",
+        json={
+            "ip_address": "2001:db8::44",
+            "reason": "Disabled proxy block",
+            "status": "disabled",
+        },
+    )
+    assert active_block.status_code == status.HTTP_201_CREATED
+    assert disabled_block.status_code == status.HTTP_201_CREATED
 
     response = await client.get(
         "/api/v1/internal/proxy-config",
@@ -84,6 +98,7 @@ async def test_proxy_snapshot_returns_active_jwt_and_rate_limit_policies(
     assert len(data["rate_limit_rules"]) == 1
     assert data["rate_limit_rules"][0]["id"] == active_rule.json()["data"]["id"]
     assert data["rate_limit_rules"][0]["scope_type"] == "global"
+    assert data["blocked_ip_addresses"] == ["203.0.113.44"]
 
 
 async def test_proxy_snapshot_uses_public_key_for_asymmetric_jwt(

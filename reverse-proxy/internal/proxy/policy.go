@@ -24,9 +24,10 @@ type RateLimitPolicy struct {
 }
 
 type PolicySnapshot struct {
-	GeneratedAt    time.Time         `json:"generated_at"`
-	JWT            *JWTPolicy        `json:"jwt"`
-	RateLimitRules []RateLimitPolicy `json:"rate_limit_rules"`
+	GeneratedAt        time.Time         `json:"generated_at"`
+	JWT                *JWTPolicy        `json:"jwt"`
+	RateLimitRules     []RateLimitPolicy `json:"rate_limit_rules"`
+	BlockedIPAddresses []string          `json:"blocked_ip_addresses"`
 }
 
 type PolicyProvider interface {

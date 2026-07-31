@@ -31,6 +31,17 @@ type fakeRateLimiter struct {
 	calls  atomic.Int32
 }
 
+type fakeIPBlocker struct {
+	blocked bool
+	err     error
+	calls   atomic.Int32
+}
+
+func (f *fakeIPBlocker) IsBlocked(_ context.Context, _ string) (bool, error) {
+	f.calls.Add(1)
+	return f.blocked, f.err
+}
+
 func (f *fakeRateLimiter) Allow(
 	_ context.Context,
 	_ *KeyInfo,
@@ -61,10 +72,14 @@ func TestHandler(t *testing.T) {
 		jwtError         error
 		rateLimitResult  RateLimitResult
 		rateLimitError   error
+		ipBlocked        bool
+		ipBlockError     error
 		wantStatus       int
 		wantErrorCode    string
 		wantBackendCalls int32
 	}{
+		{name: "blocked IP", ipBlocked: true, wantStatus: http.StatusForbidden, wantErrorCode: "IP_BLOCKED"},
+		{name: "IP policy unavailable", ipBlockError: ErrPolicyUnavailable, wantStatus: http.StatusServiceUnavailable, wantErrorCode: "IP_BLOCK_POLICY_UNAVAILABLE"},
 		{name: "missing key", wantStatus: http.StatusUnauthorized, wantErrorCode: "API_KEY_MISSING"},
 		{name: "unknown key", apiKey: "ak_unknown", validationErr: ErrKeyNotFound, wantStatus: http.StatusUnauthorized, wantErrorCode: "API_KEY_INVALID"},
 		{name: "revoked key", apiKey: "ak_revoked", validationErr: ErrKeyRevoked, wantStatus: http.StatusForbidden, wantErrorCode: "API_KEY_REVOKED"},
@@ -109,11 +124,13 @@ func TestHandler(t *testing.T) {
 			}
 			jwtValidator := &fakeJWTValidator{err: tt.jwtError}
 			rateLimiter := &fakeRateLimiter{result: tt.rateLimitResult, err: tt.rateLimitError}
+			ipBlocker := &fakeIPBlocker{blocked: tt.ipBlocked, err: tt.ipBlockError}
 			handler, err := NewHandler(
 				backendURL,
 				validator,
 				jwtValidator,
 				rateLimiter,
+				ipBlocker,
 				"X-API-Key",
 				time.Second,
 				slog.New(slog.NewTextHandler(io.Discard, nil)),
@@ -169,6 +186,7 @@ func TestHandlerRespectsValidationTimeout(t *testing.T) {
 		validator,
 		&fakeJWTValidator{},
 		&fakeRateLimiter{result: RateLimitResult{Allowed: true}},
+		&fakeIPBlocker{},
 		"X-API-Key",
 		10*time.Millisecond,
 		slog.New(slog.NewTextHandler(io.Discard, nil)),
@@ -200,6 +218,7 @@ func TestNewHandlerValidation(t *testing.T) {
 	validator := &fakeValidator{}
 	jwtValidator := &fakeJWTValidator{}
 	rateLimiter := &fakeRateLimiter{}
+	ipBlocker := &fakeIPBlocker{}
 
 	tests := []struct {
 		name      string
@@ -207,24 +226,26 @@ func TestNewHandlerValidation(t *testing.T) {
 		validator KeyValidator
 		jwt       JWTValidator
 		limiter   RateLimiter
+		blocker   IPBlocker
 		header    string
 		timeout   time.Duration
 		logger    *slog.Logger
 	}{
-		{name: "missing backend", validator: validator, jwt: jwtValidator, limiter: rateLimiter, header: "X-API-Key", timeout: time.Second, logger: logger},
-		{name: "missing validator", backend: backendURL, jwt: jwtValidator, limiter: rateLimiter, header: "X-API-Key", timeout: time.Second, logger: logger},
-		{name: "missing JWT validator", backend: backendURL, validator: validator, limiter: rateLimiter, header: "X-API-Key", timeout: time.Second, logger: logger},
-		{name: "missing rate limiter", backend: backendURL, validator: validator, jwt: jwtValidator, header: "X-API-Key", timeout: time.Second, logger: logger},
-		{name: "missing header", backend: backendURL, validator: validator, jwt: jwtValidator, limiter: rateLimiter, timeout: time.Second, logger: logger},
-		{name: "invalid timeout", backend: backendURL, validator: validator, jwt: jwtValidator, limiter: rateLimiter, header: "X-API-Key", logger: logger},
-		{name: "missing logger", backend: backendURL, validator: validator, jwt: jwtValidator, limiter: rateLimiter, header: "X-API-Key", timeout: time.Second},
+		{name: "missing backend", validator: validator, jwt: jwtValidator, limiter: rateLimiter, blocker: ipBlocker, header: "X-API-Key", timeout: time.Second, logger: logger},
+		{name: "missing validator", backend: backendURL, jwt: jwtValidator, limiter: rateLimiter, blocker: ipBlocker, header: "X-API-Key", timeout: time.Second, logger: logger},
+		{name: "missing JWT validator", backend: backendURL, validator: validator, limiter: rateLimiter, blocker: ipBlocker, header: "X-API-Key", timeout: time.Second, logger: logger},
+		{name: "missing rate limiter", backend: backendURL, validator: validator, jwt: jwtValidator, blocker: ipBlocker, header: "X-API-Key", timeout: time.Second, logger: logger},
+		{name: "missing IP blocker", backend: backendURL, validator: validator, jwt: jwtValidator, limiter: rateLimiter, header: "X-API-Key", timeout: time.Second, logger: logger},
+		{name: "missing header", backend: backendURL, validator: validator, jwt: jwtValidator, limiter: rateLimiter, blocker: ipBlocker, timeout: time.Second, logger: logger},
+		{name: "invalid timeout", backend: backendURL, validator: validator, jwt: jwtValidator, limiter: rateLimiter, blocker: ipBlocker, header: "X-API-Key", logger: logger},
+		{name: "missing logger", backend: backendURL, validator: validator, jwt: jwtValidator, limiter: rateLimiter, blocker: ipBlocker, header: "X-API-Key", timeout: time.Second},
 	}
 
 	for _, tt := range tests {
 		tt := tt
 		t.Run(tt.name, func(t *testing.T) {
 			t.Parallel()
-			if _, err := NewHandler(tt.backend, tt.validator, tt.jwt, tt.limiter, tt.header, tt.timeout, tt.logger); err == nil {
+			if _, err := NewHandler(tt.backend, tt.validator, tt.jwt, tt.limiter, tt.blocker, tt.header, tt.timeout, tt.logger); err == nil {
 				t.Fatal("expected error")
 			}
 		})

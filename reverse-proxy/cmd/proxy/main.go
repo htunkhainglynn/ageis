@@ -97,11 +97,17 @@ func main() {
 		logger.Error("creating Redis rate limiter failed", "error", err)
 		os.Exit(1)
 	}
+	ipBlocker, err := proxycore.NewPolicyIPBlocker(policyProvider)
+	if err != nil {
+		logger.Error("creating IP blocker failed", "error", err)
+		os.Exit(1)
+	}
 	proxyHandler, err := proxycore.NewHandler(
 		cfg.BackendURL,
 		validator,
 		jwtValidator,
 		rateLimiter,
+		ipBlocker,
 		cfg.APIKeyHeader,
 		cfg.ValidationTimeout,
 		logger,

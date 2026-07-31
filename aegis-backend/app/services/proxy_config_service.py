@@ -1,5 +1,6 @@
 from app.core.encryption import decrypt_jwt_signing_key
 from app.models.jwt_config import JWTConfigAlgorithm
+from app.repositories.ip_block_repository import IPBlockRepository
 from app.repositories.jwt_config_repository import JWTConfigRepository
 from app.repositories.rate_limit_rule_repository import RateLimitRuleRepository
 from app.schemas.proxy_config import (
@@ -16,14 +17,17 @@ class ProxyConfigService:
         self,
         jwt_config_repository: JWTConfigRepository,
         rate_limit_rule_repository: RateLimitRuleRepository,
+        ip_block_repository: IPBlockRepository,
     ) -> None:
         self.jwt_config_repository = jwt_config_repository
         self.rate_limit_rule_repository = rate_limit_rule_repository
+        self.ip_block_repository = ip_block_repository
 
     async def get_snapshot(self) -> ProxyPolicySnapshot:
         """Return active JWT and rate-limit policies in one consistent shape."""
         jwt_config = await self.jwt_config_repository.get_active_config()
         rate_limit_rules = await self.rate_limit_rule_repository.list_active_rules()
+        ip_blocks = await self.ip_block_repository.list_active_blocks()
 
         jwt_policy: ProxyJWTValidationPolicy | None = None
         if jwt_config is not None:
@@ -55,4 +59,5 @@ class ProxyConfigService:
                 )
                 for rule in rate_limit_rules
             ],
+            blocked_ip_addresses=[block.ip_address for block in ip_blocks],
         )

@@ -37,6 +37,7 @@ type Handler struct {
 	validator         KeyValidator
 	jwtValidator      JWTValidator
 	rateLimiter       RateLimiter
+	ipBlocker         IPBlocker
 	apiKeyHeader      string
 	validationTimeout time.Duration
 }
@@ -52,6 +53,7 @@ func NewHandler(
 	validator KeyValidator,
 	jwtValidator JWTValidator,
 	rateLimiter RateLimiter,
+	ipBlocker IPBlocker,
 	apiKeyHeader string,
 	validationTimeout time.Duration,
 	logger *slog.Logger,
@@ -67,6 +69,9 @@ func NewHandler(
 	}
 	if rateLimiter == nil {
 		return nil, errors.New("rate limiter is required")
+	}
+	if ipBlocker == nil {
+		return nil, errors.New("IP blocker is required")
 	}
 	if strings.TrimSpace(apiKeyHeader) == "" {
 		return nil, errors.New("API key header is required")
@@ -89,20 +94,35 @@ func NewHandler(
 		validator:         validator,
 		jwtValidator:      jwtValidator,
 		rateLimiter:       rateLimiter,
+		ipBlocker:         ipBlocker,
 		apiKeyHeader:      apiKeyHeader,
 		validationTimeout: validationTimeout,
 	}, nil
 }
 
 func (h *Handler) ServeHTTP(w http.ResponseWriter, r *http.Request) {
+	ctx, cancel := context.WithTimeout(r.Context(), h.validationTimeout)
+	defer cancel()
+
+	blocked, err := h.ipBlocker.IsBlocked(ctx, r.RemoteAddr)
+	if err != nil {
+		if errors.Is(err, ErrClientIPInvalid) {
+			writeError(w, http.StatusBadRequest, "CLIENT_IP_INVALID", "The client network address is invalid.")
+		} else {
+			writeError(w, http.StatusServiceUnavailable, "IP_BLOCK_POLICY_UNAVAILABLE", "IP block policy is temporarily unavailable.")
+		}
+		return
+	}
+	if blocked {
+		writeError(w, http.StatusForbidden, "IP_BLOCKED", "Requests from this IP address are blocked.")
+		return
+	}
+
 	key := strings.TrimSpace(r.Header.Get(h.apiKeyHeader))
 	if key == "" {
 		writeError(w, http.StatusUnauthorized, "API_KEY_MISSING", fmt.Sprintf("%s header is required.", h.apiKeyHeader))
 		return
 	}
-
-	ctx, cancel := context.WithTimeout(r.Context(), h.validationTimeout)
-	defer cancel()
 
 	keyInfo, err := h.validator.ValidateKey(ctx, key)
 	if err != nil {

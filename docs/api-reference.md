@@ -56,8 +56,8 @@ to both components through the environment.
 - `POST /api-keys/validate` — verifies a presented raw key against prefix
   candidates and bcrypt hashes; returns only enforcement metadata
 - `GET /internal/proxy-config` — returns the active JWT verification policy and
-  active rate-limit rules. HS256 requires decrypted shared verification
-  material; RS256/ES256 return only the public verification key.
+  active rate-limit rules and IP addresses. HS256 requires decrypted shared
+  verification material; RS256/ES256 return only the public verification key.
 
 ## Not yet built
 - Threat detection rule config endpoints
@@ -69,4 +69,6 @@ to both components through the environment.
   distributed rate limiting, credential stripping, and cached REST policy
   synchronization are implemented and covered by an isolated real-process E2E
   test.
-- Threat detection and IP-block enforcement are not yet implemented.
+- Exact-address IP blocking evaluates the direct network peer before
+  credentials and ignores untrusted forwarding headers.
+- Threat detection is not yet implemented.

@@ -37,3 +37,4 @@ class ProxyPolicySnapshot(BaseModel):
     generated_at: datetime = Field(default_factory=lambda: datetime.now(timezone.utc))
     jwt: ProxyJWTValidationPolicy | None
     rate_limit_rules: list[ProxyRateLimitPolicy]
+    blocked_ip_addresses: list[str]

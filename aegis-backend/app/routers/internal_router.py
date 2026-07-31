@@ -3,6 +3,7 @@ from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.core.authorization import require_internal_api_token
 from app.core.database import get_db
+from app.repositories.ip_block_repository import IPBlockRepository
 from app.repositories.jwt_config_repository import JWTConfigRepository
 from app.repositories.rate_limit_rule_repository import RateLimitRuleRepository
 from app.schemas.base import ApiResponse, success_response
@@ -19,6 +20,7 @@ def get_proxy_config_service(
     return ProxyConfigService(
         jwt_config_repository=JWTConfigRepository(db=db),
         rate_limit_rule_repository=RateLimitRuleRepository(db=db),
+        ip_block_repository=IPBlockRepository(db=db),
     )
 
 
@@ -32,6 +34,6 @@ async def get_proxy_config(
     _: None = Depends(require_internal_api_token),
     service: ProxyConfigService = Depends(get_proxy_config_service),
 ) -> ApiResponse[ProxyPolicySnapshot]:
-    """Return the active JWT config and rate-limit rules to the data plane."""
+    """Return active JWT, rate-limit, and IP-block policy to the data plane."""
     snapshot = await service.get_snapshot()
     return success_response(message="Proxy policy fetched successfully.", data=snapshot)

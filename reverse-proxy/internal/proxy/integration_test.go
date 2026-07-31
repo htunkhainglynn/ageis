@@ -123,6 +123,9 @@ func TestAPIKeyValidationAndForwardingIntegration(t *testing.T) {
 				rateLimiterFunc(func(context.Context, *proxycore.KeyInfo, string) (proxycore.RateLimitResult, error) {
 					return proxycore.RateLimitResult{Allowed: true}, nil
 				}),
+				ipBlockerFunc(func(context.Context, string) (bool, error) {
+					return false, nil
+				}),
 				"X-API-Key",
 				time.Second,
 				slog.New(slog.NewTextHandler(io.Discard, nil)),
@@ -181,4 +184,10 @@ func (f rateLimiterFunc) Allow(
 	path string,
 ) (proxycore.RateLimitResult, error) {
 	return f(ctx, keyInfo, path)
+}
+
+type ipBlockerFunc func(context.Context, string) (bool, error)
+
+func (f ipBlockerFunc) IsBlocked(ctx context.Context, remoteAddr string) (bool, error) {
+	return f(ctx, remoteAddr)
 }

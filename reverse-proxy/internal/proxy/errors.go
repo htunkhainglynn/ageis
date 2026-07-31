@@ -11,4 +11,5 @@ var (
 	ErrJWTMissing           = errors.New("JWT missing")
 	ErrJWTInvalid           = errors.New("JWT invalid")
 	ErrJWTExpired           = errors.New("JWT expired")
+	ErrClientIPInvalid      = errors.New("client IP address invalid")
 )

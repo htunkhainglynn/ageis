@@ -150,17 +150,71 @@ activate_code=$(request "$TMP_DIR/activate.json" \
   "$CONTROL_URL/api/v1/jwt-configs/$JWT_CONFIG_ID/activate")
 [ "$activate_code" = "200" ] || fail "JWT activation returned HTTP $activate_code"
 
+CLIENT_JWT=$(compose exec -T \
+  -e E2E_JWT_SIGNING_KEY="$E2E_JWT_SIGNING_KEY" \
+  control-plane \
+  python -c 'import os,time; from jose import jwt; print(jwt.encode({"sub":"e2e-client","iss":"aegis-e2e","aud":"aegis-upstream","exp":int(time.time())+300}, os.environ["E2E_JWT_SIGNING_KEY"], algorithm="HS256"))')
+
+sleep 2
+
+PROXY_CLIENT_IP=$(compose exec -T control-plane \
+  python -c 'import socket; print(socket.gethostbyname(socket.gethostname()))')
+block_payload=$(jq -n \
+  --arg ip_address "$PROXY_CLIENT_IP" \
+  '{ip_address:$ip_address,reason:"E2E manual block"}')
+block_code=$(request "$TMP_DIR/ip-block.json" \
+  -H "Authorization: Bearer $ACCESS_TOKEN" \
+  -H "Content-Type: application/json" \
+  -d "$block_payload" \
+  "$CONTROL_URL/api/v1/ip-blocks")
+[ "$block_code" = "201" ] || fail "IP-block creation returned HTTP $block_code"
+IP_BLOCK_ID=$(jq -er '.data.id' "$TMP_DIR/ip-block.json")
+
+sleep 2
+
+BLOCKED_RESULT=$(compose exec -T \
+  -e E2E_API_KEY="$RAW_API_KEY" \
+  -e E2E_CLIENT_JWT="$CLIENT_JWT" \
+  control-plane \
+  python -c '
+import json
+import os
+import urllib.error
+import urllib.request
+
+request = urllib.request.Request(
+    "http://reverse-proxy:8080/",
+    headers={
+        "X-Forwarded-For": "198.51.100.200",
+        "X-API-Key": os.environ["E2E_API_KEY"],
+        "Authorization": "Bearer " + os.environ["E2E_CLIENT_JWT"],
+    },
+)
+try:
+    response = urllib.request.urlopen(request)
+    result = {"code": response.status, "body": json.loads(response.read())}
+except urllib.error.HTTPError as error:
+    result = {"code": error.code, "body": json.loads(error.read())}
+print(json.dumps(result))
+')
+blocked_code=$(printf "%s" "$BLOCKED_RESULT" | jq -r '.code')
+printf "%s" "$BLOCKED_RESULT" | jq '.body' >"$TMP_DIR/blocked.json"
+[ "$blocked_code" = "403" ] || fail "Blocked direct peer returned HTTP $blocked_code"
+jq -e '.errorCode == "IP_BLOCKED"' "$TMP_DIR/blocked.json" >/dev/null ||
+  fail "IP-block error contract is incorrect"
+
+unblock_code=$(request "$TMP_DIR/unblock.json" \
+  -X DELETE \
+  -H "Authorization: Bearer $ACCESS_TOKEN" \
+  "$CONTROL_URL/api/v1/ip-blocks/$IP_BLOCK_ID")
+[ "$unblock_code" = "200" ] || fail "IP-block disable returned HTTP $unblock_code"
+
 rate_code=$(request "$TMP_DIR/rate.json" \
   -H "Authorization: Bearer $ACCESS_TOKEN" \
   -H "Content-Type: application/json" \
   -d '{"name":"E2E global","scope_type":"global","scope_value":null,"algorithm":"fixed_window","limit_count":2,"window_seconds":60,"status":"active"}' \
   "$CONTROL_URL/api/v1/rate-limit-rules")
 [ "$rate_code" = "201" ] || fail "Rate-rule creation returned HTTP $rate_code"
-
-CLIENT_JWT=$(compose exec -T \
-  -e E2E_JWT_SIGNING_KEY="$E2E_JWT_SIGNING_KEY" \
-  control-plane \
-  python -c 'import os,time; from jose import jwt; print(jwt.encode({"sub":"e2e-client","iss":"aegis-e2e","aud":"aegis-upstream","exp":int(time.time())+300}, os.environ["E2E_JWT_SIGNING_KEY"], algorithm="HS256"))')
 
 sleep 2
 
@@ -201,4 +255,4 @@ third_code=$(request "$TMP_DIR/third.json" \
 jq -e '.errorCode == "RATE_LIMIT_EXCEEDED"' "$TMP_DIR/third.json" >/dev/null ||
   fail "Rate-limit error contract is incorrect"
 
-echo "E2E passed: Control Plane -> reverse proxy -> upstream, including auth and Redis rate limiting."
+echo "E2E passed: Control Plane -> reverse proxy -> upstream, including auth, IP blocking, and Redis rate limiting."

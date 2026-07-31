@@ -74,6 +74,7 @@ func clonePolicySnapshot(value *proxycore.PolicySnapshot) *proxycore.PolicySnaps
 		copyValue.JWT = &jwtCopy
 	}
 	copyValue.RateLimitRules = append([]proxycore.RateLimitPolicy(nil), value.RateLimitRules...)
+	copyValue.BlockedIPAddresses = append([]string(nil), value.BlockedIPAddresses...)
 	for index := range copyValue.RateLimitRules {
 		if value.RateLimitRules[index].BurstAllowance != nil {
 			burst := *value.RateLimitRules[index].BurstAllowance

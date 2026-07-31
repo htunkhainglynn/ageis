@@ -48,7 +48,8 @@ Verified on 2026-07-31 against the actual monorepo:
   one-active-config behavior, and Admin-only access.
 - Manual exact-address IP block CRUD with IPv4/IPv6 canonicalization,
   one-active-block-per-address behavior, soft deletion, Admin-only Control
-  Plane access, and an Admin-only dashboard page.
+  Plane access, an Admin-only dashboard page, active-policy distribution, and
+  proxy-edge enforcement before credential validation.
 - Authenticated internal policy snapshot returning only active JWT validation
   material and active rate-limit rules for the reverse proxy.
 - Dashboard login and configuration pages for users, API keys, rate limits,
@@ -75,12 +76,8 @@ Current checkpoint verification:
 - Dashboard: lint, production build, and 4 Node tests pass, none skipped.
 - Reverse proxy baseline: `go test -race ./...` and `go vet ./...` pass.
 - Full stack: the isolated `scripts/e2e.sh` test passes against fresh
-  PostgreSQL and Redis volumes and real component containers.
-
-### Partially implemented
-
-- Manual IP block policy configuration is implemented; reverse-proxy
-  enforcement and E2E verification are the next checkpoint.
+  PostgreSQL and Redis volumes and real component containers, including
+  manual block/unblock behavior for an actual Compose-network client.
 
 ### Not implemented
 
@@ -127,6 +124,11 @@ Current checkpoint verification:
   or IPv6 address. CIDR ranges are intentionally excluded from the baseline to
   avoid accidental broad lockouts; source is immutable and operator-created
   rows are always marked `manual`.
+- **Trusted client address:** the proxy evaluates its direct network peer and
+  deliberately ignores `X-Forwarded-For` for block decisions. This prevents a
+  caller from evading a block by spoofing a forwarding header. Deployments
+  behind another trusted load balancer can add an explicit trusted-proxy model
+  later instead of trusting forwarded headers globally.
 
 ## Testing and Checkpoints
 
