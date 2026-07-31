@@ -1,6 +1,7 @@
+from app.core.config import settings
 from app.core.exceptions import ConflictException, NotFoundException
 from app.core.security import hash_password
-from app.models.user import User
+from app.models.user import User, UserRole
 from app.repositories.user_repository import UserRepository
 from app.schemas.user import (
     UserCreate,
@@ -34,6 +35,11 @@ class UserService(BaseService[User, UserCreate, UserUpdate]):
             full_name=payload.full_name,
             hashed_password=hash_password(payload.password),
             is_active=True,
+            role=(
+                UserRole.ADMIN.value
+                if settings.is_bootstrap_admin(payload.email)
+                else UserRole.API_CONSUMER.value
+            ),
         )
         db_user = await self.user_repository.create_user(user_input)
         return UserResponse.model_validate(db_user)
@@ -72,15 +78,22 @@ class UserService(BaseService[User, UserCreate, UserUpdate]):
             full_name=payload.full_name,
             hashed_password=hash_password(payload.password) if payload.password is not None else None,
             is_active=payload.is_active,
+            role=payload.role.value if payload.role is not None else None,
         )
         user = await self.user_repository.update_user(user=user, payload=user_update)
         return UserResponse.model_validate(user)
 
     async def delete_user(self, user_id: int) -> None:
-        """Delete an existing user."""
-        deleted = await self.user_repository.delete(user_id)
-        if not deleted:
+        """Deactivate an existing user while preserving ownership history."""
+        user = await self.user_repository.get_by_id(user_id)
+        if user is None:
             raise NotFoundException(
                 error_code="USER_NOT_FOUND",
                 message="User not found.",
             )
+        if not user.is_active:
+            return
+        await self.user_repository.update_user(
+            user=user,
+            payload=UserUpdateInDB(is_active=False),
+        )

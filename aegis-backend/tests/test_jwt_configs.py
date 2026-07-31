@@ -7,19 +7,14 @@ from sqlalchemy.ext.asyncio import AsyncSession
 from app.core.config import settings
 from app.main import app
 from app.models.jwt_config import JWTConfig, JWTConfigStatus
-from app.services.jwt_config_service import JWTConfigService
 
 pytestmark = pytest.mark.asyncio
 
 
 @pytest.fixture(autouse=True)
-def override_admin_and_encryption(monkeypatch: pytest.MonkeyPatch) -> None:
-    """Use deterministic admin checks and ephemeral encryption keys in tests."""
+def override_encryption(monkeypatch: pytest.MonkeyPatch) -> None:
+    """Use an ephemeral encryption key in tests."""
 
-    def is_admin_user(_: JWTConfigService, actor_user) -> bool:
-        return actor_user.id == 1
-
-    monkeypatch.setattr(JWTConfigService, "_is_admin_user", is_admin_user)
     monkeypatch.setattr(settings, "JWT_CONFIG_ENCRYPTION_KEY", Fernet.generate_key().decode())
 
 

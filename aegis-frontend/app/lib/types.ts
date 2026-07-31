@@ -2,7 +2,7 @@ export type Role = "admin" | "viewer" | "api_consumer";
 
 export type AuthUser = {
   email: string;
-  role: Role | null;
+  role: Role;
 };
 
 export type UserItem = {
@@ -10,6 +10,7 @@ export type UserItem = {
   email: string;
   full_name: string;
   is_active: boolean;
+  role: Role;
   created_at: string;
   updated_at: string;
 };

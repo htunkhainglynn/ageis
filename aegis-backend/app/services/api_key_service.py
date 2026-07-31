@@ -10,7 +10,7 @@ from app.core.exceptions import (
 from app.core.rate_limit import enforce_api_key_creation_rate_limit
 from app.core.security import hash_password
 from app.models.api_key import APIKey, APIKeyStatus
-from app.models.user import User
+from app.models.user import User, UserRole
 from app.repositories.api_key_repository import APIKeyRepository
 from app.repositories.user_repository import UserRepository
 from app.schemas.api_key import (
@@ -55,23 +55,7 @@ class APIKeyService:
 
     def _is_admin_user(self, actor_user: User) -> bool:
         """Return whether the actor has admin privileges."""
-        admin_role_name = settings.api_key.ADMIN_ROLE_NAME.lower()
-
-        role = getattr(actor_user, "role", None)
-        if isinstance(role, str) and role.lower() == admin_role_name:
-            return True
-
-        is_admin = getattr(actor_user, "is_admin", None)
-        if isinstance(is_admin, bool) and is_admin:
-            return True
-
-        roles = getattr(actor_user, "roles", None)
-        if isinstance(roles, list):
-            for current_role in roles:
-                if isinstance(current_role, str) and current_role.lower() == admin_role_name:
-                    return True
-
-        return False
+        return actor_user.role == UserRole.ADMIN.value
 
     def _assert_owner_or_admin(self, actor_user: User, api_key: APIKey) -> None:
         """Ensure the actor is owner or admin before managing a key."""
@@ -88,6 +72,14 @@ class APIKeyService:
     ) -> APIKeyCreatedResponse:
         """Create a new API key and return raw key only once."""
         actor_user = await self._get_actor_user(actor_subject)
+        if actor_user.role not in {
+            UserRole.ADMIN.value,
+            UserRole.API_CONSUMER.value,
+        }:
+            raise ForbiddenException(
+                error_code="API_KEY_FORBIDDEN",
+                message="You are not allowed to manage API keys.",
+            )
         await enforce_api_key_creation_rate_limit(actor_user.id)
 
         raw_key = f"ak_{secrets.token_urlsafe(settings.api_key.TOKEN_BYTES)}"
@@ -110,8 +102,16 @@ class APIKeyService:
     async def list_api_keys(self, actor_subject: str, skip: int, limit: int) -> APIKeyListResponse:
         """List API keys for the authenticated user."""
         actor_user = await self._get_actor_user(actor_subject)
-        api_keys = await self.api_key_repository.get_keys_by_owner(actor_user.id, skip, limit)
-        total = await self.api_key_repository.count_keys_by_owner(actor_user.id)
+        if self._is_admin_user(actor_user):
+            api_keys = await self.api_key_repository.get_all(skip=skip, limit=limit)
+            total = await self.api_key_repository.count_all_keys()
+        else:
+            api_keys = await self.api_key_repository.get_keys_by_owner(
+                actor_user.id,
+                skip,
+                limit,
+            )
+            total = await self.api_key_repository.count_keys_by_owner(actor_user.id)
 
         return APIKeyListResponse(
             items=[APIKeyMetadataResponse.model_validate(api_key) for api_key in api_keys],

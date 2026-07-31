@@ -8,7 +8,7 @@ from app.core.exceptions import (
     UnauthorizedException,
 )
 from app.models.jwt_config import JWTConfig, JWTConfigStatus
-from app.models.user import User
+from app.models.user import User, UserRole
 from app.repositories.jwt_config_repository import JWTConfigRepository
 from app.repositories.user_repository import UserRepository
 from app.schemas.jwt_config import (
@@ -53,23 +53,7 @@ class JWTConfigService:
 
     def _is_admin_user(self, actor_user: User) -> bool:
         """Return whether the actor has admin privileges."""
-        admin_role_name = settings.api_key.ADMIN_ROLE_NAME.lower()
-
-        role = getattr(actor_user, "role", None)
-        if isinstance(role, str) and role.lower() == admin_role_name:
-            return True
-
-        is_admin = getattr(actor_user, "is_admin", None)
-        if isinstance(is_admin, bool) and is_admin:
-            return True
-
-        roles = getattr(actor_user, "roles", None)
-        if isinstance(roles, list):
-            for current_role in roles:
-                if isinstance(current_role, str) and current_role.lower() == admin_role_name:
-                    return True
-
-        return False
+        return actor_user.role == UserRole.ADMIN.value
 
     def _assert_admin_user(self, actor_user: User) -> None:
         """Ensure the actor has admin privileges for JWT config operations."""

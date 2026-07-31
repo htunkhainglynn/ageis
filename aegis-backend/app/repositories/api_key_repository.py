@@ -28,6 +28,11 @@ class APIKeyRepository(BaseRepository[APIKey, APIKeyCreateInDB, APIKeyUpdateInDB
         result = await self.db.execute(select(func.count(APIKey.id)).where(APIKey.owner_id == owner_id))
         return int(result.scalar_one())
 
+    async def count_all_keys(self) -> int:
+        """Count API keys across all owners for administrator views."""
+        result = await self.db.execute(select(func.count(APIKey.id)))
+        return int(result.scalar_one())
+
     async def create_api_key(self, payload: APIKeyCreateInDB) -> APIKey:
         """Create a new API key record."""
         api_key = APIKey(**payload.model_dump())

@@ -1,4 +1,3 @@
-from app.core.config import settings
 from app.core.exceptions import (
     BadRequestException,
     ConflictException,
@@ -11,7 +10,7 @@ from app.models.rate_limit_rule import (
     RateLimitRuleScopeType,
     RateLimitRuleStatus,
 )
-from app.models.user import User
+from app.models.user import User, UserRole
 from app.repositories.rate_limit_rule_repository import RateLimitRuleRepository
 from app.repositories.user_repository import UserRepository
 from app.schemas.rate_limit_rule import (
@@ -56,23 +55,7 @@ class RateLimitRuleService:
 
     def _is_admin_user(self, actor_user: User) -> bool:
         """Return whether the actor has admin privileges."""
-        admin_role_name = settings.api_key.ADMIN_ROLE_NAME.lower()
-
-        role = getattr(actor_user, "role", None)
-        if isinstance(role, str) and role.lower() == admin_role_name:
-            return True
-
-        is_admin = getattr(actor_user, "is_admin", None)
-        if isinstance(is_admin, bool) and is_admin:
-            return True
-
-        roles = getattr(actor_user, "roles", None)
-        if isinstance(roles, list):
-            for current_role in roles:
-                if isinstance(current_role, str) and current_role.lower() == admin_role_name:
-                    return True
-
-        return False
+        return actor_user.role == UserRole.ADMIN.value
 
     def _assert_admin_user(self, actor_user: User) -> None:
         """Ensure the actor has admin privileges for write operations."""
@@ -128,7 +111,7 @@ class RateLimitRuleService:
     ) -> RateLimitRuleResponse:
         """Create a new rate limit rule."""
         actor_user = await self._get_actor_user(actor_subject)
-        # self._assert_admin_user(actor_user)
+        self._assert_admin_user(actor_user)
 
         self._validate_scope_tuple(payload.scope_type.value, payload.scope_value)
         await self._assert_no_active_scope_conflict(
@@ -199,7 +182,7 @@ class RateLimitRuleService:
     ) -> RateLimitRuleResponse:
         """Update mutable fields of a rule."""
         actor_user = await self._get_actor_user(actor_subject)
-        # self._assert_admin_user(actor_user)
+        self._assert_admin_user(actor_user)
 
         if payload.model_dump(exclude_unset=True) == {}:
             raise BadRequestException(
@@ -243,7 +226,7 @@ class RateLimitRuleService:
     async def disable_rule(self, actor_subject: str, rule_id: int) -> None:
         """Soft-delete a rule by disabling it."""
         actor_user = await self._get_actor_user(actor_subject)
-        # self._assert_admin_user(actor_user)
+        self._assert_admin_user(actor_user)
 
         existing_rule = await self.rate_limit_rule_repository.get_by_id(rule_id)
         if existing_rule is None:

@@ -1,8 +1,9 @@
 from fastapi import APIRouter, Depends, Query, status
 from sqlalchemy.ext.asyncio import AsyncSession
 
+from app.core.authorization import require_api_key_manager
 from app.core.database import get_db
-from app.core.security import get_current_subject
+from app.models.user import User
 from app.repositories.api_key_repository import APIKeyRepository
 from app.repositories.user_repository import UserRepository
 from app.schemas.api_key import (
@@ -34,14 +35,17 @@ def get_api_key_service(db: AsyncSession = Depends(get_db)) -> APIKeyService:
 )
 async def create_api_key(
     payload: APIKeyCreateRequest,
-    actor_subject: str = Depends(get_current_subject),
+    actor: User = Depends(require_api_key_manager),
     api_key_service: APIKeyService = Depends(get_api_key_service),
 ) -> ApiResponse[APIKeyCreatedResponse]:
     """Create API key.
 
     Generate and securely persist a new API key for the authenticated user.
     """
-    created_api_key = await api_key_service.create_api_key(actor_subject=actor_subject, payload=payload)
+    created_api_key = await api_key_service.create_api_key(
+        actor_subject=str(actor.id),
+        payload=payload,
+    )
     return success_response(message="API key created successfully.", data=created_api_key)
 
 
@@ -54,14 +58,18 @@ async def create_api_key(
 async def list_api_keys(
     skip: int = Query(default=0, ge=0),
     limit: int = Query(default=10, ge=1, le=100),
-    actor_subject: str = Depends(get_current_subject),
+    actor: User = Depends(require_api_key_manager),
     api_key_service: APIKeyService = Depends(get_api_key_service),
 ) -> ApiResponse[APIKeyListResponse]:
     """List API keys.
 
     Return paginated API key metadata for the authenticated user.
     """
-    api_keys = await api_key_service.list_api_keys(actor_subject=actor_subject, skip=skip, limit=limit)
+    api_keys = await api_key_service.list_api_keys(
+        actor_subject=str(actor.id),
+        skip=skip,
+        limit=limit,
+    )
     return success_response(message="API keys fetched successfully.", data=api_keys)
 
 
@@ -73,14 +81,17 @@ async def list_api_keys(
 )
 async def get_api_key(
     api_key_id: int,
-    actor_subject: str = Depends(get_current_subject),
+    actor: User = Depends(require_api_key_manager),
     api_key_service: APIKeyService = Depends(get_api_key_service),
 ) -> ApiResponse[APIKeyMetadataResponse]:
     """Get API key.
 
     Return API key metadata for a single API key record.
     """
-    api_key = await api_key_service.get_api_key(actor_subject=actor_subject, api_key_id=api_key_id)
+    api_key = await api_key_service.get_api_key(
+        actor_subject=str(actor.id),
+        api_key_id=api_key_id,
+    )
     return success_response(message="API key fetched successfully.", data=api_key)
 
 
@@ -93,7 +104,7 @@ async def get_api_key(
 async def update_api_key(
     api_key_id: int,
     payload: APIKeyUpdateRequest,
-    actor_subject: str = Depends(get_current_subject),
+    actor: User = Depends(require_api_key_manager),
     api_key_service: APIKeyService = Depends(get_api_key_service),
 ) -> ApiResponse[APIKeyMetadataResponse]:
     """Update API key.
@@ -101,7 +112,7 @@ async def update_api_key(
     Update mutable metadata fields for an API key.
     """
     updated_api_key = await api_key_service.update_api_key(
-        actor_subject=actor_subject,
+        actor_subject=str(actor.id),
         api_key_id=api_key_id,
         payload=payload,
     )
@@ -117,12 +128,15 @@ async def update_api_key(
 )
 async def revoke_api_key(
     api_key_id: int,
-    actor_subject: str = Depends(get_current_subject),
+    actor: User = Depends(require_api_key_manager),
     api_key_service: APIKeyService = Depends(get_api_key_service),
 ) -> ApiResponse[None]:
     """Revoke API key.
 
     Soft-revoke API key by changing its status to revoked.
     """
-    await api_key_service.revoke_api_key(actor_subject=actor_subject, api_key_id=api_key_id)
+    await api_key_service.revoke_api_key(
+        actor_subject=str(actor.id),
+        api_key_id=api_key_id,
+    )
     return success_response(message="API key revoked successfully.", data=None)

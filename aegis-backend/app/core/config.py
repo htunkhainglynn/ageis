@@ -78,6 +78,7 @@ class Settings(BaseSettings):
     API_KEY_CREATE_RATE_LIMIT: int = 5
     API_KEY_CREATE_RATE_WINDOW_SECONDS: int = 60
     API_KEY_ADMIN_ROLE_NAME: str = "admin"
+    BOOTSTRAP_ADMIN_EMAILS: str = ""
 
     LOG_LEVEL: str = "INFO"
 
@@ -140,6 +141,15 @@ class Settings(BaseSettings):
             CREATE_RATE_WINDOW_SECONDS=self.API_KEY_CREATE_RATE_WINDOW_SECONDS,
             ADMIN_ROLE_NAME=self.API_KEY_ADMIN_ROLE_NAME,
         )
+
+    def is_bootstrap_admin(self, email: str) -> bool:
+        """Return whether an email is explicitly allowed to register as an admin."""
+        allowed_emails = {
+            candidate.strip().lower()
+            for candidate in self.BOOTSTRAP_ADMIN_EMAILS.split(",")
+            if candidate.strip()
+        }
+        return email.strip().lower() in allowed_emails
 
 
 @lru_cache

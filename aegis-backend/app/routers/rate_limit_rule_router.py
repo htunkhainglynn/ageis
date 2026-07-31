@@ -1,8 +1,9 @@
 from fastapi import APIRouter, Depends, Query, status
 from sqlalchemy.ext.asyncio import AsyncSession
 
+from app.core.authorization import get_current_user, require_admin
 from app.core.database import get_db
-from app.core.security import get_current_subject
+from app.models.user import User
 from app.models.rate_limit_rule import RateLimitRuleScopeType, RateLimitRuleStatus
 from app.repositories.rate_limit_rule_repository import RateLimitRuleRepository
 from app.repositories.user_repository import UserRepository
@@ -37,11 +38,14 @@ def get_rate_limit_rule_service(db: AsyncSession = Depends(get_db)) -> RateLimit
 )
 async def create_rate_limit_rule(
     payload: RateLimitRuleCreateRequest,
-    actor_subject: str = Depends(get_current_subject),
+    actor: User = Depends(require_admin),
     rate_limit_rule_service: RateLimitRuleService = Depends(get_rate_limit_rule_service),
 ) -> ApiResponse[RateLimitRuleResponse]:
     """Create rate limit rule."""
-    created_rule = await rate_limit_rule_service.create_rule(actor_subject=actor_subject, payload=payload)
+    created_rule = await rate_limit_rule_service.create_rule(
+        actor_subject=str(actor.id),
+        payload=payload,
+    )
     return success_response(message="Rate limit rule created successfully.", data=created_rule)
 
 
@@ -56,12 +60,12 @@ async def list_rate_limit_rules(
     limit: int = Query(default=10, ge=1, le=100),
     scope_type: RateLimitRuleScopeType | None = Query(default=None),
     status_filter: RateLimitRuleStatus | None = Query(default=None, alias="status"),
-    actor_subject: str = Depends(get_current_subject),
+    actor: User = Depends(get_current_user),
     rate_limit_rule_service: RateLimitRuleService = Depends(get_rate_limit_rule_service),
 ) -> ApiResponse[RateLimitRuleListResponse]:
     """List rate limit rules with optional filters."""
     rules = await rate_limit_rule_service.list_rules(
-        actor_subject=actor_subject,
+        actor_subject=str(actor.id),
         skip=skip,
         limit=limit,
         scope_type=scope_type.value if scope_type is not None else None,
@@ -78,11 +82,14 @@ async def list_rate_limit_rules(
 )
 async def get_rate_limit_rule(
     rule_id: int,
-    actor_subject: str = Depends(get_current_subject),
+    actor: User = Depends(get_current_user),
     rate_limit_rule_service: RateLimitRuleService = Depends(get_rate_limit_rule_service),
 ) -> ApiResponse[RateLimitRuleResponse]:
     """Get one rate limit rule."""
-    rule = await rate_limit_rule_service.get_rule(actor_subject=actor_subject, rule_id=rule_id)
+    rule = await rate_limit_rule_service.get_rule(
+        actor_subject=str(actor.id),
+        rule_id=rule_id,
+    )
     return success_response(message="Rate limit rule fetched successfully.", data=rule)
 
 
@@ -95,12 +102,12 @@ async def get_rate_limit_rule(
 async def update_rate_limit_rule(
     rule_id: int,
     payload: RateLimitRuleUpdateRequest,
-    actor_subject: str = Depends(get_current_subject),
+    actor: User = Depends(require_admin),
     rate_limit_rule_service: RateLimitRuleService = Depends(get_rate_limit_rule_service),
 ) -> ApiResponse[RateLimitRuleResponse]:
     """Update one rate limit rule."""
     updated_rule = await rate_limit_rule_service.update_rule(
-        actor_subject=actor_subject,
+        actor_subject=str(actor.id),
         rule_id=rule_id,
         payload=payload,
     )
@@ -116,9 +123,12 @@ async def update_rate_limit_rule(
 )
 async def disable_rate_limit_rule(
     rule_id: int,
-    actor_subject: str = Depends(get_current_subject),
+    actor: User = Depends(require_admin),
     rate_limit_rule_service: RateLimitRuleService = Depends(get_rate_limit_rule_service),
 ) -> ApiResponse[None]:
     """Disable one rate limit rule."""
-    await rate_limit_rule_service.disable_rule(actor_subject=actor_subject, rule_id=rule_id)
+    await rate_limit_rule_service.disable_rule(
+        actor_subject=str(actor.id),
+        rule_id=rule_id,
+    )
     return success_response(message="Rate limit rule disabled successfully.", data=None)

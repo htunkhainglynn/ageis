@@ -1,4 +1,3 @@
-import pytest
 from fastapi import status
 from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
@@ -9,19 +8,9 @@ from app.models.rate_limit_rule import (
     RateLimitRuleScopeType,
     RateLimitRuleStatus,
 )
-from app.services.rate_limit_rule_service import RateLimitRuleService
+import pytest
 
 pytestmark = pytest.mark.asyncio
-
-
-@pytest.fixture(autouse=True)
-def override_admin_resolution(monkeypatch: pytest.MonkeyPatch) -> None:
-    """Use deterministic admin resolution for authorization tests."""
-
-    def is_admin_user(_: RateLimitRuleService, actor_user) -> bool:
-        return actor_user.id == 1
-
-    monkeypatch.setattr(RateLimitRuleService, "_is_admin_user", is_admin_user)
 
 
 async def test_create_rate_limit_rule_success(

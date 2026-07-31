@@ -1,8 +1,9 @@
 from fastapi import APIRouter, Depends, Query, status
 from sqlalchemy.ext.asyncio import AsyncSession
 
+from app.core.authorization import require_admin
 from app.core.database import get_db
-from app.core.security import get_current_subject
+from app.models.user import User
 from app.repositories.user_repository import UserRepository
 from app.schemas.base import ApiResponse, success_response
 from app.schemas.user import UserCreate, UserListResponse, UserResponse, UserUpdate
@@ -45,7 +46,7 @@ async def create_user(
 async def list_users(
     skip: int = Query(default=0, ge=0),
     limit: int = Query(default=10, ge=1, le=100),
-    _: str = Depends(get_current_subject),
+    _: User = Depends(require_admin),
     user_service: UserService = Depends(get_user_service),
 ) -> ApiResponse[UserListResponse]:
     """List users.
@@ -64,7 +65,7 @@ async def list_users(
 )
 async def get_user_by_id(
     user_id: int,
-    _: str = Depends(get_current_subject),
+    _: User = Depends(require_admin),
     user_service: UserService = Depends(get_user_service),
 ) -> ApiResponse[UserResponse]:
     """Get user by id.
@@ -84,7 +85,7 @@ async def get_user_by_id(
 async def update_user(
     user_id: int,
     payload: UserUpdate,
-    _: str = Depends(get_current_subject),
+    _: User = Depends(require_admin),
     user_service: UserService = Depends(get_user_service),
 ) -> ApiResponse[UserResponse]:
     """Update user.
@@ -103,7 +104,7 @@ async def update_user(
 )
 async def delete_user(
     user_id: int,
-    _: str = Depends(get_current_subject),
+    _: User = Depends(require_admin),
     user_service: UserService = Depends(get_user_service),
 ) -> ApiResponse[None]:
     """Delete user.

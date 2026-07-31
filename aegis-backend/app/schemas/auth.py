@@ -33,3 +33,5 @@ class TokenPayload(BaseModel):
 
     sub: str
     type: str
+    email: EmailStr
+    role: str

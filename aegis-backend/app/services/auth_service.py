@@ -35,8 +35,16 @@ class AuthService:
                 message="User is inactive.",
             )
 
-        access_token, access_expiry = create_access_token(str(user.id))
-        refresh_token, refresh_expiry = create_refresh_token(str(user.id))
+        access_token, access_expiry = create_access_token(
+            str(user.id),
+            user.email,
+            user.role,
+        )
+        refresh_token, refresh_expiry = create_refresh_token(
+            str(user.id),
+            user.email,
+            user.role,
+        )
 
         access_ttl = int((access_expiry - datetime.now(timezone.utc)).total_seconds())
         refresh_ttl = int((refresh_expiry - datetime.now(timezone.utc)).total_seconds())
@@ -65,7 +73,31 @@ class AuthService:
                 message="Refresh token has been revoked.",
             )
 
-        access_token, access_expiry = create_access_token(subject)
+        try:
+            user_id = int(subject)
+        except ValueError as exc:
+            raise UnauthorizedException(
+                error_code="AUTH_INVALID_SUBJECT",
+                message="Invalid authentication subject.",
+            ) from exc
+
+        user = await self.user_repository.get_by_id(user_id)
+        if user is None:
+            raise UnauthorizedException(
+                error_code="AUTH_USER_NOT_FOUND",
+                message="Authenticated user not found.",
+            )
+        if not user.is_active:
+            raise UnauthorizedException(
+                error_code="AUTH_USER_INACTIVE",
+                message="User is inactive.",
+            )
+
+        access_token, access_expiry = create_access_token(
+            subject,
+            user.email,
+            user.role,
+        )
         access_ttl = int((access_expiry - datetime.now(timezone.utc)).total_seconds())
         await store_token(access_token, subject, TokenType.ACCESS, access_ttl)
 

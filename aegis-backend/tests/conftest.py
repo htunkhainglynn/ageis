@@ -10,7 +10,7 @@ from app.core.database import get_db
 from app.core.security import get_current_subject, hash_password
 from app.main import app
 from app.models import Base
-from app.models.user import User
+from app.models.user import User, UserRole
 
 
 @pytest_asyncio.fixture
@@ -69,6 +69,7 @@ async def seeded_users(db_session: AsyncSession) -> None:
         full_name="Owner User",
         hashed_password=hash_password("Passw0rd!"),
         is_active=True,
+        role=UserRole.ADMIN.value,
     )
     user_two = User(
         id=2,
@@ -76,11 +77,18 @@ async def seeded_users(db_session: AsyncSession) -> None:
         full_name="Other User",
         hashed_password=hash_password("Passw0rd!"),
         is_active=True,
+        role=UserRole.API_CONSUMER.value,
+    )
+    viewer = User(
+        id=3,
+        email="viewer@example.com",
+        full_name="Viewer User",
+        hashed_password=hash_password("Passw0rd!"),
+        is_active=True,
+        role=UserRole.VIEWER.value,
     )
 
     db_session.add(user_one)
     db_session.add(user_two)
+    db_session.add(viewer)
     await db_session.commit()
-
-    user_one.role = "admin"
-    user_two.role = "member"

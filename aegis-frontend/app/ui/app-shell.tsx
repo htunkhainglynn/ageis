@@ -8,11 +8,11 @@ import type { Role } from "../lib/types";
 
 const navItems = [
   { href: "/system", label: "System health" },
-  { href: "/analytics", label: "Analytics" },
-  { href: "/users", label: "Users" },
-  { href: "/api-keys", label: "API keys" },
-  { href: "/rate-limits", label: "Rate limits" },
-  { href: "/jwt-config", label: "JWT configuration" },
+  { href: "/analytics", label: "Analytics", roles: ["admin", "viewer"] as Role[] },
+  { href: "/users", label: "Users", roles: ["admin"] as Role[] },
+  { href: "/api-keys", label: "API keys", roles: ["admin", "api_consumer"] as Role[] },
+  { href: "/rate-limits", label: "Rate limits", roles: ["admin"] as Role[] },
+  { href: "/jwt-config", label: "JWT configuration", roles: ["admin"] as Role[] },
 ];
 
 export function RedirectHome() {
@@ -22,13 +22,17 @@ export function RedirectHome() {
   return null;
 }
 
-export function ProtectedPage({ children }: { roles?: Role[]; children: React.ReactNode }) {
+export function ProtectedPage({ roles, children }: { roles?: Role[]; children: React.ReactNode }) {
   const { user } = useAuth();
   const router = useRouter();
   useEffect(() => {
-    if (!user) router.replace("/login");
-  }, [router, user]);
-  if (!user) return null;
+    if (!user) {
+      router.replace("/login");
+    } else if (roles && !roles.includes(user.role)) {
+      router.replace("/system");
+    }
+  }, [roles, router, user]);
+  if (!user || (roles && !roles.includes(user.role))) return null;
   return <AppShell>{children}</AppShell>;
 }
 
@@ -50,7 +54,7 @@ function AppShell({ children }: { children: React.ReactNode }) {
           <span style={{ fontWeight: 800, fontSize: 18 }}>Aegis</span>
         </Link>
         <nav aria-label="Primary navigation" style={{ display: "grid", gap: 6 }}>
-          {navItems.map((item) => {
+          {navItems.filter((item) => !item.roles || (user && item.roles.includes(user.role))).map((item) => {
             const active = pathname === item.href;
             return <Link key={item.href} href={item.href} style={{
               color: active ? "white" : "#b8c8c0", background: active ? "#254638" : "transparent",
@@ -63,7 +67,7 @@ function AppShell({ children }: { children: React.ReactNode }) {
         <header style={{ height: 72, display: "flex", alignItems: "center", justifyContent: "flex-end", gap: 16, padding: "0 34px", borderBottom: "1px solid var(--border)", background: "rgba(255,255,255,.88)" }}>
           <div style={{ textAlign: "right" }}>
             <div style={{ fontSize: 13, fontWeight: 700 }}>{user?.email}</div>
-            <div className="muted" style={{ fontSize: 12, textTransform: "capitalize" }}>{user?.role?.replace("_", " ") ?? "Authenticated user"}</div>
+            <div className="muted" style={{ fontSize: 12, textTransform: "capitalize" }}>{user?.role.replace("_", " ")}</div>
           </div>
           <button className="btn btn-secondary" onClick={handleLogout}>Log out</button>
         </header>

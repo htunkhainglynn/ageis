@@ -1,7 +1,17 @@
+from enum import Enum
+
 from sqlalchemy import Boolean, String
 from sqlalchemy.orm import Mapped, mapped_column
 
 from app.models.base import BaseModel
+
+
+class UserRole(str, Enum):
+    """Supported authorization roles."""
+
+    ADMIN = "admin"
+    VIEWER = "viewer"
+    API_CONSUMER = "api_consumer"
 
 
 class User(BaseModel):
@@ -13,3 +23,10 @@ class User(BaseModel):
     full_name: Mapped[str] = mapped_column(String(255), nullable=False)
     hashed_password: Mapped[str] = mapped_column(String(255), nullable=False)
     is_active: Mapped[bool] = mapped_column(Boolean, default=True, nullable=False)
+    role: Mapped[str] = mapped_column(
+        String(32),
+        default=UserRole.API_CONSUMER.value,
+        server_default=UserRole.API_CONSUMER.value,
+        index=True,
+        nullable=False,
+    )

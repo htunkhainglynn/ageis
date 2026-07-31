@@ -1,8 +1,9 @@
 from fastapi import APIRouter, Depends, Query, status
 from sqlalchemy.ext.asyncio import AsyncSession
 
+from app.core.authorization import require_admin
 from app.core.database import get_db
-from app.core.security import get_current_subject
+from app.models.user import User
 from app.repositories.jwt_config_repository import JWTConfigRepository
 from app.repositories.user_repository import UserRepository
 from app.schemas.base import ApiResponse, success_response
@@ -33,11 +34,14 @@ def get_jwt_config_service(db: AsyncSession = Depends(get_db)) -> JWTConfigServi
 )
 async def create_jwt_config(
     payload: JWTConfigCreateRequest,
-    actor_subject: str = Depends(get_current_subject),
+    actor: User = Depends(require_admin),
     jwt_config_service: JWTConfigService = Depends(get_jwt_config_service),
 ) -> ApiResponse[JWTConfigResponse]:
     """Create JWT config."""
-    created_config = await jwt_config_service.create_config(actor_subject=actor_subject, payload=payload)
+    created_config = await jwt_config_service.create_config(
+        actor_subject=str(actor.id),
+        payload=payload,
+    )
     return success_response(message="JWT config created successfully.", data=created_config)
 
 
@@ -50,11 +54,15 @@ async def create_jwt_config(
 async def list_jwt_configs(
     skip: int = Query(default=0, ge=0),
     limit: int = Query(default=10, ge=1, le=100),
-    actor_subject: str = Depends(get_current_subject),
+    actor: User = Depends(require_admin),
     jwt_config_service: JWTConfigService = Depends(get_jwt_config_service),
 ) -> ApiResponse[JWTConfigListResponse]:
     """List JWT configs."""
-    configs = await jwt_config_service.list_configs(actor_subject=actor_subject, skip=skip, limit=limit)
+    configs = await jwt_config_service.list_configs(
+        actor_subject=str(actor.id),
+        skip=skip,
+        limit=limit,
+    )
     return success_response(message="JWT configs fetched successfully.", data=configs)
 
 
@@ -66,11 +74,14 @@ async def list_jwt_configs(
 )
 async def get_jwt_config(
     config_id: int,
-    actor_subject: str = Depends(get_current_subject),
+    actor: User = Depends(require_admin),
     jwt_config_service: JWTConfigService = Depends(get_jwt_config_service),
 ) -> ApiResponse[JWTConfigResponse]:
     """Get JWT config."""
-    jwt_config = await jwt_config_service.get_config(actor_subject=actor_subject, config_id=config_id)
+    jwt_config = await jwt_config_service.get_config(
+        actor_subject=str(actor.id),
+        config_id=config_id,
+    )
     return success_response(message="JWT config fetched successfully.", data=jwt_config)
 
 
@@ -83,12 +94,12 @@ async def get_jwt_config(
 async def update_jwt_config(
     config_id: int,
     payload: JWTConfigUpdateRequest,
-    actor_subject: str = Depends(get_current_subject),
+    actor: User = Depends(require_admin),
     jwt_config_service: JWTConfigService = Depends(get_jwt_config_service),
 ) -> ApiResponse[JWTConfigResponse]:
     """Update JWT config."""
     updated_config = await jwt_config_service.update_config(
-        actor_subject=actor_subject,
+        actor_subject=str(actor.id),
         config_id=config_id,
         payload=payload,
     )
@@ -103,11 +114,14 @@ async def update_jwt_config(
 )
 async def activate_jwt_config(
     config_id: int,
-    actor_subject: str = Depends(get_current_subject),
+    actor: User = Depends(require_admin),
     jwt_config_service: JWTConfigService = Depends(get_jwt_config_service),
 ) -> ApiResponse[JWTConfigResponse]:
     """Activate JWT config."""
-    activated_config = await jwt_config_service.activate_config(actor_subject=actor_subject, config_id=config_id)
+    activated_config = await jwt_config_service.activate_config(
+        actor_subject=str(actor.id),
+        config_id=config_id,
+    )
     return success_response(message="JWT config activated successfully.", data=activated_config)
 
 
@@ -120,9 +134,12 @@ async def activate_jwt_config(
 )
 async def disable_jwt_config(
     config_id: int,
-    actor_subject: str = Depends(get_current_subject),
+    actor: User = Depends(require_admin),
     jwt_config_service: JWTConfigService = Depends(get_jwt_config_service),
 ) -> ApiResponse[None]:
     """Disable JWT config."""
-    await jwt_config_service.disable_config(actor_subject=actor_subject, config_id=config_id)
+    await jwt_config_service.disable_config(
+        actor_subject=str(actor.id),
+        config_id=config_id,
+    )
     return success_response(message="JWT config disabled successfully.", data=None)

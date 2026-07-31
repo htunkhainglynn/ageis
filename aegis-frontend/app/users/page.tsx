@@ -55,11 +55,12 @@ export default function UsersPage() {
       {error && <p className="error" role="alert">{error}</p>}
       <section className="card" style={{ overflowX: "auto" }}>
         <table style={{ width: "100%", borderCollapse: "collapse", minWidth: 760 }}>
-          <thead><tr>{["Name", "Email", "Status", "Created", ""].map((heading) =>
+          <thead><tr>{["Name", "Email", "Role", "Status", "Created", ""].map((heading) =>
             <th key={heading} style={head}>{heading}</th>)}</tr></thead>
           <tbody>{items.map((user) => <tr key={user.id}>
             <td style={cell}><strong>{user.full_name}</strong></td>
             <td style={cell}>{user.email}</td>
+            <td style={{ ...cell, textTransform: "capitalize" }}>{user.role.replace("_", " ")}</td>
             <td style={cell}><span style={{ color: user.is_active ? "#176b50" : "#69736d", fontWeight: 700 }}>{user.is_active ? "Active" : "Inactive"}</span></td>
             <td style={cell}>{new Date(user.created_at).toLocaleDateString()}</td>
             <td style={{ ...cell, textAlign: "right" }}>
@@ -91,6 +92,7 @@ function UserModal({ initial, accessToken, onClose, onSaved }: {
   const [email, setEmail] = useState(initial?.email ?? "");
   const [password, setPassword] = useState("");
   const [active, setActive] = useState(initial?.is_active ?? true);
+  const [role, setRole] = useState(initial?.role ?? "api_consumer");
   const [error, setError] = useState("");
   const [loading, setLoading] = useState(false);
 
@@ -106,13 +108,20 @@ function UserModal({ initial, accessToken, onClose, onSaved }: {
             full_name: fullName,
             password: password || null,
             is_active: active,
+            role,
           }),
         }, accessToken);
       } else {
-        await apiRequest("/users", {
+        const created = await apiRequest<UserItem>("/users", {
           method: "POST",
           body: JSON.stringify({ email, full_name: fullName, password }),
         });
+        if (role !== "api_consumer") {
+          await apiRequest(`/users/${created.id}`, {
+            method: "PUT",
+            body: JSON.stringify({ role }),
+          }, accessToken);
+        }
       }
       onSaved();
     } catch (err) {
@@ -128,6 +137,13 @@ function UserModal({ initial, accessToken, onClose, onSaved }: {
       <label className="label">Email<input className="input" type="email" required disabled={Boolean(initial)} value={email} onChange={(e) => setEmail(e.target.value)} /></label>
       <label className="label">{initial ? "New password (optional)" : "Password"}
         <input className="input" type="password" minLength={8} required={!initial} value={password} onChange={(e) => setPassword(e.target.value)} />
+      </label>
+      <label className="label">Role
+        <select className="input" value={role} onChange={(event) => setRole(event.target.value as UserItem["role"])}>
+          <option value="api_consumer">API Consumer</option>
+          <option value="viewer">Viewer</option>
+          <option value="admin">Admin</option>
+        </select>
       </label>
       {initial && <label style={{ display: "flex", gap: 9, alignItems: "center", fontSize: 14 }}>
         <input type="checkbox" checked={active} onChange={(e) => setActive(e.target.checked)} /> Active account

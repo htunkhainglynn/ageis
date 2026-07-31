@@ -104,3 +104,47 @@ async def test_user_cannot_revoke_another_users_key(client, seeded_users) -> Non
     payload = forbidden_response.json()
     assert payload["status"] == "error"
     assert payload["errorCode"] == "API_KEY_FORBIDDEN"
+
+
+async def test_admin_lists_all_keys_while_consumer_lists_only_owned_keys(
+    client,
+    seeded_users,
+) -> None:
+    """Verify API-key list visibility follows the role and ownership matrix."""
+    admin_create = await client.post(
+        "/api/v1/api-keys",
+        json={"name": "Admin key", "scopes": ["read"]},
+    )
+    assert admin_create.status_code == status.HTTP_201_CREATED
+
+    app.state.test_actor_subject = "2"
+    consumer_create = await client.post(
+        "/api/v1/api-keys",
+        json={"name": "Consumer key", "scopes": ["read"]},
+    )
+    assert consumer_create.status_code == status.HTTP_201_CREATED
+
+    consumer_list = await client.get("/api/v1/api-keys")
+    assert consumer_list.status_code == status.HTTP_200_OK
+    assert consumer_list.json()["data"]["total"] == 1
+    assert consumer_list.json()["data"]["items"][0]["name"] == "Consumer key"
+
+    app.state.test_actor_subject = "1"
+    admin_list = await client.get("/api/v1/api-keys")
+    assert admin_list.status_code == status.HTTP_200_OK
+    assert admin_list.json()["data"]["total"] == 2
+
+
+async def test_viewer_cannot_access_api_key_management(client, seeded_users) -> None:
+    """Verify Viewer has no API-key management access."""
+    app.state.test_actor_subject = "3"
+
+    list_response = await client.get("/api/v1/api-keys")
+    create_response = await client.post(
+        "/api/v1/api-keys",
+        json={"name": "Forbidden viewer key", "scopes": ["read"]},
+    )
+
+    assert list_response.status_code == status.HTTP_403_FORBIDDEN
+    assert create_response.status_code == status.HTTP_403_FORBIDDEN
+    assert list_response.json()["errorCode"] == "API_KEY_FORBIDDEN"

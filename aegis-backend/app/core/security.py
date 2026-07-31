@@ -31,7 +31,7 @@ def hash_password(password: str) -> str:
     return pwd_context.hash(password)
 
 
-def create_access_token(subject: str) -> tuple[str, datetime]:
+def create_access_token(subject: str, email: str, role: str) -> tuple[str, datetime]:
     """Create a signed JWT access token."""
     expires_at = datetime.now(timezone.utc) + timedelta(
         minutes=settings.jwt.ACCESS_TOKEN_EXPIRE_MINUTES
@@ -39,13 +39,15 @@ def create_access_token(subject: str) -> tuple[str, datetime]:
     payload = {
         "sub": subject,
         "type": TokenType.ACCESS,
+        "email": email,
+        "role": role,
         "exp": expires_at,
     }
     token = jwt.encode(payload, settings.jwt.SECRET_KEY, algorithm=settings.jwt.ALGORITHM)
     return token, expires_at
 
 
-def create_refresh_token(subject: str) -> tuple[str, datetime]:
+def create_refresh_token(subject: str, email: str, role: str) -> tuple[str, datetime]:
     """Create a signed JWT refresh token."""
     expires_at = datetime.now(timezone.utc) + timedelta(
         days=settings.jwt.REFRESH_TOKEN_EXPIRE_DAYS
@@ -53,6 +55,8 @@ def create_refresh_token(subject: str) -> tuple[str, datetime]:
     payload = {
         "sub": subject,
         "type": TokenType.REFRESH,
+        "email": email,
+        "role": role,
         "exp": expires_at,
     }
     token = jwt.encode(payload, settings.jwt.SECRET_KEY, algorithm=settings.jwt.ALGORITHM)
@@ -65,12 +69,19 @@ def decode_token(token: str) -> TokenPayload:
         payload = jwt.decode(token, settings.jwt.SECRET_KEY, algorithms=[settings.jwt.ALGORITHM])
         subject = payload.get("sub")
         token_type = payload.get("type")
-        if not isinstance(subject, str) or not isinstance(token_type, str):
+        email = payload.get("email")
+        role = payload.get("role")
+        if (
+            not isinstance(subject, str)
+            or not isinstance(token_type, str)
+            or not isinstance(email, str)
+            or not isinstance(role, str)
+        ):
             raise UnauthorizedException(
                 error_code="AUTH_INVALID_TOKEN",
                 message="Invalid token payload.",
             )
-        return TokenPayload(sub=subject, type=token_type)
+        return TokenPayload(sub=subject, type=token_type, email=email, role=role)
     except JWTError as exc:
         raise UnauthorizedException(
             error_code="AUTH_INVALID_TOKEN",
