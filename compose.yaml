@@ -3,29 +3,116 @@ services:
     image: postgres:17-alpine
     environment:
       POSTGRES_DB: aegis
-      POSTGRES_USER: user
-      POSTGRES_PASSWORD: password
+      POSTGRES_USER: aegis
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:?Set POSTGRES_PASSWORD}
     ports:
-      - "5432:5432"
+      - "${POSTGRES_PORT:-5432}:5432"
     volumes:
       - aegis_postgres_data:/var/lib/postgresql/data
     healthcheck:
-      test: ["CMD-SHELL", "pg_isready -U user -d aegis"]
+      test: ["CMD-SHELL", "pg_isready -U aegis -d aegis"]
       interval: 2s
       timeout: 3s
-      retries: 20
+      retries: 30
+    restart: unless-stopped
 
   redis:
     image: redis:7-alpine
+    environment:
+      REDIS_PASSWORD: ${REDIS_PASSWORD:?Set REDIS_PASSWORD}
+    command: ["sh", "-c", "exec redis-server --requirepass \"$${REDIS_PASSWORD}\""]
     ports:
-      - "6379:6379"
+      - "${REDIS_PORT:-6379}:6379"
     volumes:
       - aegis_redis_data:/data
     healthcheck:
-      test: ["CMD", "redis-cli", "ping"]
+      test: ["CMD-SHELL", "redis-cli -a \"$${REDIS_PASSWORD}\" --no-auth-warning ping | grep PONG"]
       interval: 2s
       timeout: 3s
-      retries: 20
+      retries: 30
+    restart: unless-stopped
+
+  control-plane:
+    build:
+      context: ./aegis-backend
+    environment:
+      APP_NAME: Aegis Control Plane
+      APP_ENV: production
+      APP_DEBUG: "false"
+      APP_CORS_ORIGINS: http://localhost:${DASHBOARD_PORT:-3000}
+      DATABASE_URL: postgresql+asyncpg://aegis:${POSTGRES_PASSWORD}@postgres:5432/aegis
+      REDIS_HOST: redis
+      REDIS_PORT: "6379"
+      REDIS_PASSWORD: ${REDIS_PASSWORD}
+      JWT_SECRET_KEY: ${JWT_SECRET_KEY:?Set JWT_SECRET_KEY}
+      JWT_CONFIG_ENCRYPTION_KEY: ${JWT_CONFIG_ENCRYPTION_KEY:?Set JWT_CONFIG_ENCRYPTION_KEY}
+      INTERNAL_API_TOKEN: ${INTERNAL_API_TOKEN:?Set INTERNAL_API_TOKEN}
+      BOOTSTRAP_ADMIN_EMAILS: ${BOOTSTRAP_ADMIN_EMAILS:-}
+      BOOTSTRAP_ADMIN_PASSWORD: ${BOOTSTRAP_ADMIN_PASSWORD:-}
+      BOOTSTRAP_ADMIN_FULL_NAME: ${BOOTSTRAP_ADMIN_FULL_NAME:-Aegis Administrator}
+    ports:
+      - "${CONTROL_PLANE_PORT:-8000}:8000"
+    depends_on:
+      postgres:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
+    healthcheck:
+      test:
+        - CMD
+        - python
+        - -c
+        - "import json,urllib.request; data=json.load(urllib.request.urlopen('http://localhost:8000/health')); assert data['data']['database']=='up' and data['data']['redis']=='up'"
+      interval: 3s
+      timeout: 5s
+      retries: 30
+    restart: unless-stopped
+
+  upstream:
+    image: nginx:1.27-alpine
+    ports:
+      - "${UPSTREAM_PORT:-9000}:80"
+    restart: unless-stopped
+
+  reverse-proxy:
+    build:
+      context: ./reverse-proxy
+    environment:
+      LISTEN_ADDR: :8080
+      BACKEND_URL: http://upstream:80
+      CONTROL_PLANE_URL: http://control-plane:8000
+      INTERNAL_API_TOKEN: ${INTERNAL_API_TOKEN}
+      REDIS_ADDR: redis:6379
+      REDIS_PASSWORD: ${REDIS_PASSWORD}
+      REDIS_DB: "0"
+      VALIDATION_CACHE_TTL: ${VALIDATION_CACHE_TTL:-30s}
+      VALIDATION_NEGATIVE_CACHE_TTL: ${VALIDATION_NEGATIVE_CACHE_TTL:-5s}
+      POLICY_CACHE_TTL: ${POLICY_CACHE_TTL:-30s}
+    ports:
+      - "${PROXY_PORT:-8080}:8080"
+    depends_on:
+      control-plane:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
+      upstream:
+        condition: service_started
+    restart: unless-stopped
+
+  dashboard:
+    build:
+      context: ./aegis-frontend
+      args:
+        NEXT_PUBLIC_API_URL: http://localhost:${CONTROL_PLANE_PORT:-8000}/api/v1
+    environment:
+      PORT: "3000"
+      HOST: 0.0.0.0
+    ports:
+      - "${DASHBOARD_PORT:-3000}:3000"
+    depends_on:
+      control-plane:
+        condition: service_healthy
+    restart: unless-stopped
 
 volumes:
   aegis_postgres_data:

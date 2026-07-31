@@ -29,6 +29,7 @@ class RedisConfig(BaseModel):
 
     HOST: str
     PORT: int
+    PASSWORD: str | None
     TTL: int
 
 
@@ -65,6 +66,7 @@ class Settings(BaseSettings):
 
     REDIS_HOST: str = "localhost"
     REDIS_PORT: int = 6379
+    REDIS_PASSWORD: str = ""
     REDIS_TTL: int = 60
 
     JWT_SECRET_KEY: str = "your-secret-key"
@@ -79,6 +81,8 @@ class Settings(BaseSettings):
     API_KEY_CREATE_RATE_WINDOW_SECONDS: int = 60
     API_KEY_ADMIN_ROLE_NAME: str = "admin"
     BOOTSTRAP_ADMIN_EMAILS: str = ""
+    BOOTSTRAP_ADMIN_PASSWORD: str = ""
+    BOOTSTRAP_ADMIN_FULL_NAME: str = "Aegis Administrator"
     INTERNAL_API_TOKEN: str = ""
 
     LOG_LEVEL: str = "INFO"
@@ -119,6 +123,7 @@ class Settings(BaseSettings):
         return RedisConfig(
             HOST=self.REDIS_HOST,
             PORT=self.REDIS_PORT,
+            PASSWORD=self.REDIS_PASSWORD or None,
             TTL=self.REDIS_TTL,
         )
 

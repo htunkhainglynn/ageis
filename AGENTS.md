@@ -60,20 +60,19 @@ Verified on 2026-07-31 against the actual monorepo:
 - Redis-backed distributed rate limiting with atomic fixed-window,
   sliding-window, and token-bucket scripts, burst support, standard response
   headers, and cross-instance counter tests.
+- Reproducible full-stack Docker Compose runtime with generated, ignored
+  secrets; idempotent environment-driven Admin bootstrap; and an isolated E2E
+  test that exercises Control Plane configuration, proxy API-key/JWT
+  enforcement, Redis rate limiting, and forwarding to a real HTTP upstream.
 
 Current checkpoint verification:
 
-- Control Plane: 31 pytest tests pass, none skipped; the role migration applies
+- Control Plane: 32 pytest tests pass, none skipped; the role migration applies
   successfully to PostgreSQL.
 - Dashboard: lint, production build, and 3 Node tests pass, none skipped.
 - Reverse proxy baseline: `go test -race ./...` and `go vet ./...` pass.
-
-### Partially implemented
-
-- Reverse-proxy API-key enforcement is implemented at both components, but the
-  real multi-process Compose E2E path has not yet been exercised.
-- Docker Compose provisions PostgreSQL and Redis, but does not yet run the full
-  Control Plane -> proxy -> sample backend stack.
+- Full stack: the isolated `scripts/e2e.sh` test passes against fresh
+  PostgreSQL and Redis volumes and real component containers.
 
 ### Not implemented
 
@@ -110,6 +109,13 @@ Current checkpoint verification:
   the most specific rule (`api_key`, then exact `route`, then `global`).
   API-key counters are isolated by key ID; route and global scopes represent
   shared traffic buckets as their names imply.
+- **Local bootstrap without committed credentials:** Compose generates a
+  git-ignored `.env` with cryptographically random secrets and an initial
+  Admin password. Bootstrap creates the allowlisted Admin only when absent and
+  never resets an existing account, preserving data and operator changes.
+- **Isolated integration verification:** the E2E script uses random ports,
+  credentials, Compose project names, and disposable volumes so it neither
+  depends on nor mutates a developer's normal local stack.
 
 ## Testing and Checkpoints
 

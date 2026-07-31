@@ -17,6 +17,7 @@ async def init_redis() -> bool:
         redis_client = aioredis.Redis(
             host=settings.redis.HOST,
             port=settings.redis.PORT,
+            password=settings.redis.PASSWORD,
             decode_responses=True,
         )
         await redis_client.ping()

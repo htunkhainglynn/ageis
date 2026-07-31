@@ -1,0 +1,10 @@
+.env*
+!.env.example
+.git
+.idea
+.next
+.vinext
+.wrangler
+dist
+node_modules
+*.log

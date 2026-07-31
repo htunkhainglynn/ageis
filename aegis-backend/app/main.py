@@ -4,6 +4,7 @@ from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 
 from app.core.config import settings
+from app.core.bootstrap import bootstrap_from_environment
 from app.core.database import check_database_health, close_database, init_database
 from app.core.exception_handlers import register_exception_handlers
 from app.core.redis import check_redis_health, close_redis, init_redis
@@ -21,6 +22,8 @@ async def lifespan(app: FastAPI):
     """Manage application startup and shutdown lifecycle."""
     app.state.database_ready = await init_database()
     app.state.redis_ready = await init_redis()
+    if app.state.database_ready:
+        await bootstrap_from_environment()
 
     if not app.state.database_ready:
         logger.warning("Application started without database connectivity")

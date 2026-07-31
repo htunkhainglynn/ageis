@@ -2,6 +2,7 @@ import pytest
 from fastapi import status
 
 from app.core.config import settings
+from app.core.bootstrap import ensure_bootstrap_admin
 from app.core.security import decode_token
 from app.main import app
 from app.models.user import UserRole
@@ -72,6 +73,27 @@ async def test_bootstrap_allowlist_can_create_initial_admin(
 
     assert response.status_code == status.HTTP_201_CREATED
     assert response.json()["data"]["role"] == UserRole.ADMIN.value
+
+
+async def test_environment_bootstrap_creates_admin_without_resetting_password(
+    db_session,
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    """Verify Compose can provision a usable first administrator idempotently."""
+    monkeypatch.setattr(settings, "BOOTSTRAP_ADMIN_EMAILS", "compose-admin@example.com")
+    monkeypatch.setattr(settings, "BOOTSTRAP_ADMIN_PASSWORD", "FirstPassw0rd!")
+
+    created = await ensure_bootstrap_admin(db_session)
+    assert created is not None
+    assert created.email == "compose-admin@example.com"
+    assert created.role == UserRole.ADMIN.value
+    original_hash = created.hashed_password
+
+    monkeypatch.setattr(settings, "BOOTSTRAP_ADMIN_PASSWORD", "ChangedPassw0rd!")
+    existing = await ensure_bootstrap_admin(db_session)
+    assert existing is not None
+    assert existing.id == created.id
+    assert existing.hashed_password == original_hash
 
 
 async def test_login_and_refresh_tokens_include_current_email_and_role(
