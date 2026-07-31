@@ -46,6 +46,7 @@ test("role-gated navigation matches the permission matrix", async () => {
   assert.ok(shell.includes('{ href: "/users", label: "Users", roles: ["admin"]'));
   assert.ok(shell.includes('{ href: "/api-keys", label: "API keys", roles: ["admin", "api_consumer"]'));
   assert.ok(shell.includes('{ href: "/rate-limits", label: "Rate limits", roles: ["admin"]'));
+  assert.ok(shell.includes('{ href: "/ip-blocks", label: "IP blocks", roles: ["admin"]'));
   assert.ok(shell.includes('{ href: "/jwt-config", label: "JWT configuration", roles: ["admin"]'));
   assert.match(shell, /filter\(\(item\) => !item\.roles/);
   assert.match(shell, /roles\.includes\(user\.role\)/);
@@ -61,4 +62,16 @@ test("authentication state stays in React memory", async () => {
   assert.doesNotMatch(auth, /localStorage|sessionStorage|indexedDB/);
   assert.match(auth, /setTokens\(null\)/);
   assert.match(auth, /setUser\(null\)/);
+});
+
+test("IP block management remains Admin-only in the dashboard", async () => {
+  const page = await readFile(
+    new URL("../app/ip-blocks/page.tsx", import.meta.url),
+    "utf8",
+  );
+
+  assert.match(page, /<ProtectedPage roles=\{\["admin"\]\}>/);
+  assert.match(page, /apiRequest<IPBlockList>\("\/ip-blocks\?/);
+  assert.match(page, /method: "DELETE"/);
+  assert.match(page, /exact IPv4 or IPv6 address/i);
 });

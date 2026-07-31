@@ -53,3 +53,14 @@ export type JwtConfig = {
   status: "active" | "disabled";
   created_at: string;
 };
+
+export type IPBlock = {
+  id: number;
+  ip_address: string;
+  reason: string;
+  source: "manual" | "auto";
+  status: "active" | "disabled";
+  created_by: number;
+  created_at: string;
+  updated_at: string;
+};

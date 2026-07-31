@@ -12,6 +12,7 @@ const navItems = [
   { href: "/users", label: "Users", roles: ["admin"] as Role[] },
   { href: "/api-keys", label: "API keys", roles: ["admin", "api_consumer"] as Role[] },
   { href: "/rate-limits", label: "Rate limits", roles: ["admin"] as Role[] },
+  { href: "/ip-blocks", label: "IP blocks", roles: ["admin"] as Role[] },
   { href: "/jwt-config", label: "JWT configuration", roles: ["admin"] as Role[] },
 ];
 

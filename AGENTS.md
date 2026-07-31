@@ -46,6 +46,9 @@ Verified on 2026-07-31 against the actual monorepo:
   authenticated reads, and Admin-only writes.
 - JWT configuration CRUD, Fernet-encrypted signing keys, masked responses,
   one-active-config behavior, and Admin-only access.
+- Manual exact-address IP block CRUD with IPv4/IPv6 canonicalization,
+  one-active-block-per-address behavior, soft deletion, Admin-only Control
+  Plane access, and an Admin-only dashboard page.
 - Authenticated internal policy snapshot returning only active JWT validation
   material and active rate-limit rules for the reverse proxy.
 - Dashboard login and configuration pages for users, API keys, rate limits,
@@ -67,16 +70,20 @@ Verified on 2026-07-31 against the actual monorepo:
 
 Current checkpoint verification:
 
-- Control Plane: 32 pytest tests pass, none skipped; the role migration applies
+- Control Plane: 36 pytest tests pass, none skipped; all migrations apply
   successfully to PostgreSQL.
-- Dashboard: lint, production build, and 3 Node tests pass, none skipped.
+- Dashboard: lint, production build, and 4 Node tests pass, none skipped.
 - Reverse proxy baseline: `go test -race ./...` and `go vet ./...` pass.
 - Full stack: the isolated `scripts/e2e.sh` test passes against fresh
   PostgreSQL and Redis volumes and real component containers.
 
+### Partially implemented
+
+- Manual IP block policy configuration is implemented; reverse-proxy
+  enforcement and E2E verification are the next checkpoint.
+
 ### Not implemented
 
-- Manual IP blocking baseline.
 - Threat detection rules/pattern matching.
 - Security-event persistence and analytics APIs/dashboard data.
 - Control Plane-to-proxy gRPC configuration sync.
@@ -116,6 +123,10 @@ Current checkpoint verification:
 - **Isolated integration verification:** the E2E script uses random ports,
   credentials, Compose project names, and disposable volumes so it neither
   depends on nor mutates a developer's normal local stack.
+- **IP block address semantics:** manual blocks target one canonical exact IPv4
+  or IPv6 address. CIDR ranges are intentionally excluded from the baseline to
+  avoid accidental broad lockouts; source is immutable and operator-created
+  rows are always marked `manual`.
 
 ## Testing and Checkpoints
 

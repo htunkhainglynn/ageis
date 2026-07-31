@@ -41,8 +41,11 @@ Alembic migrations in the repo — this file is a map/summary, not canonical.
 ### ThreatRule (planned, not yet built)
 - id, pattern, severity, status, created_by
 
-### IPBlock (planned, not yet built)
-- id, ip_address, reason, source (manual | auto), status
+### IPBlock
+- id, ip_address (canonical exact IPv4 or IPv6 address), reason
+- source (manual | auto), status (active | disabled), created_by
+- Constraint: only one active block for an address; historical disabled rows
+  are retained
 
 ### SecurityEvent (planned, not yet built)
 - id, event_type, source_ip, api_key_id (nullable), rule_triggered, created_at
@@ -50,7 +53,7 @@ Alembic migrations in the repo — this file is a map/summary, not canonical.
 ## Relationships
 - User 1 --- * APIKey (owns)
 - APIKey 0..1 --- * RateLimitRule (a rule may optionally scope to a specific key)
-- ThreatRule / IPBlock --- * SecurityEvent (trigger events, planned)
+- ThreatRule / IPBlock --- * SecurityEvent (event linkage planned)
 
 ## Key Constraints to Preserve
 - One active RateLimitRule per scope (scope_type + scope_value)

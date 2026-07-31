@@ -41,6 +41,13 @@ Base path: `/api/v1/`. Keep this synchronized with the generated OpenAPI schema.
 - `POST /jwt-configs/{id}/activate` — deactivates previous active config
 - `DELETE /jwt-configs/{id}` — soft delete; rejects the active config
 
+### IP Blocks (Admin)
+- `POST /ip-blocks` — manually block one exact IPv4 or IPv6 address
+- `GET /ip-blocks?skip&limit&status` — list active and historical blocks
+- `GET /ip-blocks/{id}`
+- `PATCH /ip-blocks/{id}` — update reason/status; address and source immutable
+- `DELETE /ip-blocks/{id}` — soft delete (status=disabled)
+
 ### Internal Reverse-Proxy Contract
 
 All internal routes require `X-Aegis-Internal-Token`, whose value is supplied
@@ -54,13 +61,12 @@ to both components through the environment.
 
 ## Not yet built
 - Threat detection rule config endpoints
-- IP blocking rule endpoints
 - Metrics/analytics endpoints
 - gRPC server (Control Plane -> Proxy config streaming)
 
 ## Reverse Proxy (Go)
-- The forwarding core, Control Plane API-key client, local cache, and API-key
-  middleware are implemented.
-- End-to-end API-key validation awaits the internal Control Plane validation API.
-- JWT validation, distributed rate limiting, threat detection, and IP blocking
-  are not yet implemented.
+- Forwarding, authenticated API-key validation, JWT validation, Redis-backed
+  distributed rate limiting, credential stripping, and cached REST policy
+  synchronization are implemented and covered by an isolated real-process E2E
+  test.
+- Threat detection and IP-block enforcement are not yet implemented.
