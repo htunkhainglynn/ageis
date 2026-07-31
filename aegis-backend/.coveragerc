@@ -1,0 +1,9 @@
+[run]
+source = app
+omit =
+    app/grpc_generated/*
+
+[report]
+fail_under = 70
+show_missing = True
+skip_covered = True

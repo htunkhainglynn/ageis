@@ -22,7 +22,7 @@ HTTP upstream.
 Useful commands:
 
 ```sh
-make check       # Python, Go, and dashboard checks
+make check       # Python/Go coverage gates, race/vet, lint, dashboard tests
 make e2e         # isolated real-process integration test
 make stop        # stop containers and preserve data
 make clean       # stop containers and remove local data volumes

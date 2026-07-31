@@ -8,7 +8,7 @@ COMPOSE := docker compose
 .DEFAULT_GOAL := help
 
 .PHONY: help init credentials dev up services backend proxy frontend stop clean \
-	check backend-test proxy-test frontend-install frontend-build frontend-lint \
+	check backend-test proxy-test proxy-coverage frontend-install frontend-build frontend-lint \
 	frontend-test e2e
 
 help:
@@ -69,10 +69,18 @@ clean: .env
 	$(COMPOSE) down --volumes --remove-orphans
 
 backend-test:
-	cd $(BACKEND_DIR) && ../$(PYTHON) -m pytest -q
+	cd $(BACKEND_DIR) && ../$(PYTHON) -m coverage run -m pytest -q
+	cd $(BACKEND_DIR) && ../$(PYTHON) -m coverage report
 
 proxy-test:
 	cd $(PROXY_DIR) && go test -race ./... && go vet ./... && test -z "$$(gofmt -l .)"
+
+proxy-coverage:
+	@cd $(PROXY_DIR) && \
+	go test -coverprofile=.coverage.core.out ./internal/config ./internal/controlplane ./internal/middleware ./internal/proxy >/dev/null && \
+	coverage=$$(go tool cover -func=.coverage.core.out | awk '/^total:/{gsub("%","",$$3); print $$3}'); \
+	echo "Reverse proxy core coverage: $$coverage%"; \
+	awk -v coverage="$$coverage" 'BEGIN { if (coverage < 70) exit 1 }'
 
 frontend-install:
 	$(NPM) ci
@@ -86,7 +94,7 @@ frontend-lint:
 frontend-test:
 	$(NPM) test
 
-check: backend-test proxy-test frontend-lint frontend-test
+check: backend-test proxy-test proxy-coverage frontend-lint frontend-test
 
 e2e:
 	./scripts/e2e.sh

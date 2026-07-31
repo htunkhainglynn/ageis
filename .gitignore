@@ -13,3 +13,6 @@
 **/.wrangler/
 **/dist/
 **/coverage/
+**/.coverage
+**/.coverage.*
+!**/.coveragerc

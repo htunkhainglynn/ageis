@@ -89,10 +89,17 @@ Current checkpoint verification:
   successfully to PostgreSQL.
 - Dashboard: lint, production build, and 6 Node tests pass, none skipped.
 - Reverse proxy baseline: `go test -race ./...` and `go vet ./...` pass.
+- Coverage gates: Control Plane application coverage is 77%; hand-written Go
+  enforcement-core coverage is 83.2% (generated protobuf/process wiring
+  excluded). Both fail `make check` below 70%.
 - Full stack: the isolated `scripts/e2e.sh` test passes against fresh
   PostgreSQL and Redis volumes and real component containers, including
   manual block/unblock behavior for an actual Compose-network client and
   analytics verification for blocks, forwards, and rate limiting.
+
+All Must Have, Should Have, and Could Have requirements in
+`docs/requirements.md` are implemented and verified. Only the explicit Won't
+Have scope below remains unbuilt.
 
 ### Explicitly out of scope
 
@@ -170,5 +177,8 @@ Current checkpoint verification:
   backend checkpoint.
 - Go: keep code gofmt-clean; run `go test -race ./...` and `go vet ./...`.
 - Dashboard: run lint, production build, and the complete test suite.
+- Coverage: `make check` enforces at least 70% for the Python application and
+  hand-written Go core; generated protobuf code is excluded from the core
+  metric.
 - A checkpoint may be committed only when all relevant tests pass without
   failures or skips. Commit messages must name the feature and passing checks.
