@@ -3,6 +3,8 @@
 import base64
 import os
 import secrets
+import shlex
+import subprocess
 
 
 def fernet_key() -> str:
@@ -10,9 +12,28 @@ def fernet_key() -> str:
     return base64.urlsafe_b64encode(os.urandom(32)).decode()
 
 
+def container_env(container_name: str, env_name: str) -> str | None:
+    """Reuse local Docker credentials when an existing dev volume is present."""
+    try:
+        result = subprocess.run(
+            ["docker", "inspect", container_name, "--format", "{{range .Config.Env}}{{println .}}{{end}}"],
+            check=True,
+            capture_output=True,
+            text=True,
+        )
+    except (FileNotFoundError, subprocess.CalledProcessError):
+        return None
+
+    prefix = f"{env_name}="
+    for line in result.stdout.splitlines():
+        if line.startswith(prefix):
+            return line.removeprefix(prefix)
+    return None
+
+
 values = {
-    "POSTGRES_PASSWORD": secrets.token_hex(24),
-    "REDIS_PASSWORD": secrets.token_hex(24),
+    "POSTGRES_PASSWORD": container_env("aegis-postgres-1", "POSTGRES_PASSWORD") or secrets.token_hex(24),
+    "REDIS_PASSWORD": container_env("aegis-redis-1", "REDIS_PASSWORD") or secrets.token_hex(24),
     "JWT_SECRET_KEY": secrets.token_hex(32),
     "JWT_CONFIG_ENCRYPTION_KEY": fernet_key(),
     "INTERNAL_API_TOKEN": secrets.token_hex(32),
@@ -33,4 +54,4 @@ values = {
 }
 
 for name, value in values.items():
-    print(f"{name}={value}")
+    print(f"{name}={shlex.quote(value)}")

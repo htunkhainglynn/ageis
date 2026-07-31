@@ -1,0 +1,989 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <meta
+    http-equiv="Content-Security-Policy"
+    content="default-src 'self'; script-src 'self' 'unsafe-inline'; style-src 'self' 'unsafe-inline'; connect-src 'self' http://localhost:* http://127.0.0.1:* http://[::1]:*"
+  >
+  <title>Aegis Attack / Defense Console</title>
+  <style>
+    :root {
+      color-scheme: light;
+      font-family: Inter, ui-sans-serif, system-ui, -apple-system, BlinkMacSystemFont,
+        "Segoe UI", sans-serif;
+      color: #17211c;
+      background: #edf2ee;
+      --ink: #17211c;
+      --muted: #66716b;
+      --line: #d7dfd9;
+      --panel: #ffffff;
+      --green: #18794e;
+      --green-soft: #e7f6ed;
+      --red: #bd2c2c;
+      --red-soft: #fff0f0;
+      --amber: #9a6700;
+      --amber-soft: #fff7d6;
+      --navy: #18392b;
+    }
+
+    * { box-sizing: border-box; }
+
+    body {
+      margin: 0;
+      min-width: 320px;
+      min-height: 100vh;
+      background:
+        radial-gradient(circle at 8% 0%, rgba(24, 121, 78, 0.08), transparent 28rem),
+        #edf2ee;
+    }
+
+    button, input, select, textarea { font: inherit; }
+
+    button:focus-visible,
+    input:focus-visible,
+    select:focus-visible,
+    textarea:focus-visible {
+      outline: 3px solid rgba(24, 121, 78, 0.26);
+      outline-offset: 2px;
+    }
+
+    .shell {
+      width: min(1180px, calc(100% - 32px));
+      margin: 0 auto;
+      padding: 34px 0 60px;
+    }
+
+    .hero {
+      display: flex;
+      align-items: flex-end;
+      justify-content: space-between;
+      gap: 24px;
+      margin-bottom: 22px;
+    }
+
+    .eyebrow {
+      display: inline-flex;
+      align-items: center;
+      gap: 8px;
+      margin-bottom: 10px;
+      color: var(--green);
+      font-size: 0.75rem;
+      font-weight: 800;
+      letter-spacing: 0.12em;
+      text-transform: uppercase;
+    }
+
+    .eyebrow::before {
+      width: 8px;
+      height: 8px;
+      border-radius: 50%;
+      background: var(--green);
+      content: "";
+      box-shadow: 0 0 0 4px rgba(24, 121, 78, 0.12);
+    }
+
+    h1 {
+      margin: 0;
+      max-width: 720px;
+      font-size: clamp(2rem, 5vw, 3.6rem);
+      line-height: 0.98;
+      letter-spacing: -0.055em;
+    }
+
+    .subtitle {
+      max-width: 690px;
+      margin: 15px 0 0;
+      color: var(--muted);
+      font-size: 1rem;
+      line-height: 1.6;
+    }
+
+    .local-only {
+      flex: 0 0 auto;
+      border: 1px solid #d1b35d;
+      border-radius: 999px;
+      padding: 8px 12px;
+      color: #6f4b00;
+      background: var(--amber-soft);
+      font-size: 0.78rem;
+      font-weight: 800;
+      white-space: nowrap;
+    }
+
+    .summary {
+      display: grid;
+      grid-template-columns: repeat(3, minmax(0, 1fr));
+      overflow: hidden;
+      margin-bottom: 18px;
+      border: 1px solid var(--line);
+      border-radius: 14px;
+      background: var(--navy);
+      color: white;
+      box-shadow: 0 10px 25px rgba(18, 49, 35, 0.12);
+    }
+
+    .metric {
+      min-height: 94px;
+      padding: 20px 22px;
+      border-right: 1px solid rgba(255, 255, 255, 0.13);
+    }
+
+    .metric:last-child { border-right: 0; }
+
+    .metric-label {
+      display: block;
+      margin-bottom: 8px;
+      color: rgba(255, 255, 255, 0.64);
+      font-size: 0.73rem;
+      font-weight: 800;
+      letter-spacing: 0.09em;
+      text-transform: uppercase;
+    }
+
+    .metric-value {
+      font-size: 1.38rem;
+      font-weight: 800;
+      letter-spacing: -0.025em;
+    }
+
+    .grid {
+      display: grid;
+      grid-template-columns: minmax(300px, 0.85fr) minmax(440px, 1.35fr);
+      gap: 18px;
+      align-items: start;
+    }
+
+    .panel {
+      border: 1px solid var(--line);
+      border-radius: 14px;
+      background: var(--panel);
+      box-shadow: 0 8px 24px rgba(28, 52, 40, 0.06);
+    }
+
+    .panel-header {
+      display: flex;
+      align-items: flex-start;
+      justify-content: space-between;
+      gap: 16px;
+      padding: 20px 22px 0;
+    }
+
+    h2 {
+      margin: 0;
+      font-size: 1.05rem;
+      letter-spacing: -0.02em;
+    }
+
+    .panel-kicker {
+      margin: 5px 0 0;
+      color: var(--muted);
+      font-size: 0.82rem;
+      line-height: 1.45;
+    }
+
+    .config-body, .actions-body { padding: 20px 22px 22px; }
+
+    .field { margin-bottom: 16px; }
+    .field:last-child { margin-bottom: 0; }
+
+    label {
+      display: block;
+      margin-bottom: 7px;
+      font-size: 0.78rem;
+      font-weight: 800;
+    }
+
+    input, select, textarea {
+      width: 100%;
+      border: 1px solid #cbd5ce;
+      border-radius: 9px;
+      padding: 10px 11px;
+      color: var(--ink);
+      background: #fbfcfb;
+    }
+
+    input::placeholder, textarea::placeholder { color: #929b96; }
+
+    textarea {
+      min-height: 105px;
+      resize: vertical;
+      font-family: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
+      font-size: 0.74rem;
+      line-height: 1.5;
+    }
+
+    .field-help {
+      display: block;
+      margin-top: 6px;
+      color: var(--muted);
+      font-size: 0.73rem;
+      line-height: 1.45;
+    }
+
+    .input-row {
+      display: grid;
+      grid-template-columns: 1fr auto;
+      gap: 8px;
+    }
+
+    .secondary-button, .clear-button {
+      border: 1px solid #c7d1ca;
+      border-radius: 9px;
+      padding: 9px 12px;
+      color: var(--ink);
+      background: white;
+      font-weight: 800;
+      cursor: pointer;
+    }
+
+    .secondary-button:hover, .clear-button:hover { background: #f3f6f4; }
+
+    .config-state {
+      display: inline-flex;
+      align-items: center;
+      gap: 7px;
+      border-radius: 999px;
+      padding: 6px 9px;
+      color: #6f4b00;
+      background: var(--amber-soft);
+      font-size: 0.71rem;
+      font-weight: 800;
+      white-space: nowrap;
+    }
+
+    .config-state.ready {
+      color: var(--green);
+      background: var(--green-soft);
+    }
+
+    .config-state::before {
+      width: 7px;
+      height: 7px;
+      border-radius: 50%;
+      background: currentColor;
+      content: "";
+    }
+
+    .scenario-grid {
+      display: grid;
+      grid-template-columns: repeat(2, minmax(0, 1fr));
+      gap: 10px;
+    }
+
+    .scenario-button {
+      min-height: 82px;
+      border: 1px solid #cdd7d0;
+      border-radius: 11px;
+      padding: 13px;
+      text-align: left;
+      color: var(--ink);
+      background: #f9fbf9;
+      cursor: pointer;
+      transition: border-color 120ms ease, transform 120ms ease, background 120ms ease;
+    }
+
+    .scenario-button:hover:not(:disabled) {
+      border-color: #72a98b;
+      background: #f0f8f3;
+      transform: translateY(-1px);
+    }
+
+    .scenario-button:disabled {
+      cursor: not-allowed;
+      opacity: 0.55;
+    }
+
+    .scenario-name {
+      display: block;
+      margin-bottom: 5px;
+      font-weight: 850;
+    }
+
+    .scenario-expectation {
+      display: block;
+      color: var(--muted);
+      font-size: 0.74rem;
+      line-height: 1.35;
+    }
+
+    .flood-settings {
+      display: flex;
+      align-items: center;
+      gap: 10px;
+      margin-top: 14px;
+      color: var(--muted);
+      font-size: 0.76rem;
+    }
+
+    .flood-settings label { margin: 0; }
+    .flood-settings input { width: 66px; padding: 7px 8px; }
+
+    .progress-wrap {
+      display: none;
+      margin-top: 14px;
+      padding: 12px;
+      border-radius: 9px;
+      background: #f1f5f2;
+    }
+
+    .progress-wrap.visible { display: block; }
+
+    progress {
+      width: 100%;
+      height: 9px;
+      accent-color: var(--green);
+    }
+
+    .progress-label {
+      display: block;
+      margin-top: 7px;
+      color: var(--muted);
+      font-size: 0.73rem;
+    }
+
+    .notice {
+      display: none;
+      margin-top: 14px;
+      border: 1px solid #d6bd6d;
+      border-radius: 9px;
+      padding: 10px 11px;
+      color: #735000;
+      background: var(--amber-soft);
+      font-size: 0.77rem;
+      line-height: 1.45;
+    }
+
+    .notice.visible { display: block; }
+
+    .log-panel { margin-top: 18px; overflow: hidden; }
+
+    .log-toolbar {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      gap: 14px;
+      padding: 18px 20px;
+      border-bottom: 1px solid var(--line);
+    }
+
+    .table-wrap { overflow-x: auto; }
+
+    table {
+      width: 100%;
+      border-collapse: collapse;
+      font-size: 0.82rem;
+    }
+
+    th, td {
+      padding: 12px 16px;
+      border-bottom: 1px solid #e7ece8;
+      text-align: left;
+      vertical-align: top;
+    }
+
+    th {
+      color: var(--muted);
+      background: #fafbfa;
+      font-size: 0.7rem;
+      letter-spacing: 0.08em;
+      text-transform: uppercase;
+    }
+
+    tbody tr:last-child td { border-bottom: 0; }
+
+    .status-code {
+      display: inline-block;
+      min-width: 44px;
+      border-radius: 6px;
+      padding: 4px 7px;
+      text-align: center;
+      color: #34423a;
+      background: #eef2ef;
+      font-family: ui-monospace, SFMono-Regular, Menlo, monospace;
+      font-size: 0.76rem;
+      font-weight: 800;
+    }
+
+    .verdict {
+      display: inline-flex;
+      align-items: flex-start;
+      gap: 7px;
+      font-weight: 800;
+      line-height: 1.4;
+    }
+
+    .verdict::before {
+      flex: 0 0 auto;
+      width: 8px;
+      height: 8px;
+      margin-top: 4px;
+      border-radius: 50%;
+      background: currentColor;
+      content: "";
+    }
+
+    .verdict.pass { color: var(--green); }
+    .verdict.fail { color: var(--red); }
+
+    .empty-state {
+      padding: 34px 20px;
+      text-align: center;
+      color: var(--muted);
+      font-size: 0.86rem;
+    }
+
+    .hidden { display: none !important; }
+
+    @media (max-width: 820px) {
+      .hero { align-items: flex-start; flex-direction: column; }
+      .grid { grid-template-columns: 1fr; }
+      .summary { grid-template-columns: 1fr; }
+      .metric { min-height: auto; border-right: 0; border-bottom: 1px solid rgba(255, 255, 255, 0.13); }
+      .metric:last-child { border-bottom: 0; }
+    }
+
+    @media (max-width: 560px) {
+      .shell { width: min(100% - 20px, 1180px); padding-top: 22px; }
+      .scenario-grid { grid-template-columns: 1fr; }
+      .panel-header, .config-body, .actions-body { padding-left: 16px; padding-right: 16px; }
+      .log-toolbar { align-items: flex-start; flex-direction: column; }
+    }
+  </style>
+</head>
+<body>
+  <main class="shell">
+    <header class="hero">
+      <div>
+        <div class="eyebrow">Reverse Proxy verification</div>
+        <h1>Aegis attack / defense console</h1>
+        <p class="subtitle">
+          Send controlled requests to your own local proxy and verify that valid traffic
+          reaches the echo service while invalid credentials and excess traffic stop at the edge.
+        </p>
+      </div>
+      <div class="local-only">Localhost targets only</div>
+    </header>
+
+    <section class="summary" aria-label="Test summary">
+      <div class="metric">
+        <span class="metric-label">Checks passed</span>
+        <span class="metric-value" id="pass-summary">0 / 0</span>
+      </div>
+      <div class="metric">
+        <span class="metric-label">Last defense</span>
+        <span class="metric-value" id="last-result">Not run</span>
+      </div>
+      <div class="metric">
+        <span class="metric-label">Console status</span>
+        <span class="metric-value" id="console-status">Needs seed data</span>
+      </div>
+    </section>
+
+    <div class="grid">
+      <section class="panel" aria-labelledby="config-title">
+        <div class="panel-header">
+          <div>
+            <h2 id="config-title">Local test configuration</h2>
+            <p class="panel-kicker">Credentials stay in this page's memory only.</p>
+          </div>
+          <span class="config-state" id="config-state">Incomplete</span>
+        </div>
+        <div class="config-body">
+          <div class="field">
+            <label for="proxy-url">Proxy base URL</label>
+            <input id="proxy-url" type="url" value="http://localhost:8080" spellcheck="false">
+            <span class="field-help">Only localhost, 127.0.0.1, or ::1 is accepted.</span>
+          </div>
+
+          <div class="field">
+            <label for="seed-output">Paste output from scripts/seed_dev_data.py</label>
+            <textarea
+              id="seed-output"
+              placeholder="Paste the four export AEGIS_... lines here"
+              autocomplete="off"
+              spellcheck="false"
+            ></textarea>
+            <button class="secondary-button" id="load-seed" type="button">Load seed values</button>
+            <span class="field-help" id="import-status" aria-live="polite">
+              Values are parsed locally and are never persisted.
+            </span>
+          </div>
+
+          <div class="field">
+            <label for="key-profile">Seeded API key profile</label>
+            <select id="key-profile">
+              <option value="consumer1">Consumer 1 — active</option>
+              <option value="revoked">Consumer 1 — revoked</option>
+              <option value="consumer2">Consumer 2 — active</option>
+            </select>
+          </div>
+
+          <div class="field">
+            <label for="selected-key">Selected raw dev API key</label>
+            <input
+              id="selected-key"
+              type="password"
+              placeholder="Select a profile and paste its seeded key"
+              autocomplete="off"
+              spellcheck="false"
+            >
+            <span class="field-help" id="key-prefix">No key loaded</span>
+          </div>
+
+          <div class="field">
+            <label for="demo-jwt">Seeded demo JWT</label>
+            <input
+              id="demo-jwt"
+              type="password"
+              placeholder="Paste AEGIS_DEMO_JWT"
+              autocomplete="off"
+              spellcheck="false"
+            >
+            <span class="field-help">The token printed by the seed script expires in one hour.</span>
+          </div>
+        </div>
+      </section>
+
+      <section class="panel" aria-labelledby="scenarios-title">
+        <div class="panel-header">
+          <div>
+            <h2 id="scenarios-title">Defense scenarios</h2>
+            <p class="panel-kicker">Each result is judged against its expected proxy behavior.</p>
+          </div>
+        </div>
+        <div class="actions-body">
+          <div class="scenario-grid">
+            <button class="scenario-button" id="valid-request" type="button">
+              <span class="scenario-name">Valid Request</span>
+              <span class="scenario-expectation">Consumer1 should reach echo service · 200</span>
+            </button>
+            <button class="scenario-button" id="revoked-key" type="button">
+              <span class="scenario-name">Revoked Key</span>
+              <span class="scenario-expectation">Proxy should reject it · 403</span>
+            </button>
+            <button class="scenario-button" id="no-api-key" type="button">
+              <span class="scenario-name">No API Key</span>
+              <span class="scenario-expectation">Proxy should reject it · 401</span>
+            </button>
+            <button class="scenario-button" id="malformed-key" type="button">
+              <span class="scenario-name">Malformed Key</span>
+              <span class="scenario-expectation">Garbage credential should fail · 401</span>
+            </button>
+            <button class="scenario-button" id="flood-test" type="button">
+              <span class="scenario-name">Flood (Rate Limit Test)</span>
+              <span class="scenario-expectation">First 3 allowed, remaining requests · 429</span>
+            </button>
+            <button class="scenario-button" id="cross-consumer" type="button">
+              <span class="scenario-name">Cross-Consumer Check</span>
+              <span class="scenario-expectation">Consumer2 remains isolated · 200</span>
+            </button>
+          </div>
+
+          <div class="flood-settings">
+            <label for="flood-count">Flood request count</label>
+            <input id="flood-count" type="number" min="4" max="20" value="5">
+            <span>Default 5 avoids triggering automatic IP blocking.</span>
+          </div>
+
+          <div class="progress-wrap" id="progress-wrap" aria-live="polite">
+            <progress id="flood-progress" value="0" max="5"></progress>
+            <span class="progress-label" id="progress-label">Preparing test…</span>
+          </div>
+          <div class="notice" id="cross-notice">
+            Flood complete. Run <strong>Cross-Consumer Check</strong> now to prove the
+            consumer1 counter does not affect consumer2.
+          </div>
+        </div>
+      </section>
+    </div>
+
+    <section class="panel log-panel" aria-labelledby="log-title">
+      <div class="log-toolbar">
+        <div>
+          <h2 id="log-title">Live results</h2>
+          <p class="panel-kicker">Newest checks appear first. Network failures count as failures.</p>
+        </div>
+        <button class="clear-button" id="clear-log" type="button">Clear log</button>
+      </div>
+      <div class="empty-state" id="empty-state">No scenarios have been run yet.</div>
+      <div class="table-wrap hidden" id="results-wrap">
+        <table>
+          <thead>
+            <tr>
+              <th scope="col">Time</th>
+              <th scope="col">Scenario</th>
+              <th scope="col">HTTP</th>
+              <th scope="col">Verdict</th>
+            </tr>
+          </thead>
+          <tbody id="results-body"></tbody>
+        </table>
+      </div>
+    </section>
+  </main>
+
+  <script>
+    (() => {
+      "use strict";
+
+      const profiles = {
+        consumer1: { label: "Consumer 1 active", value: "" },
+        revoked: { label: "Consumer 1 revoked", value: "" },
+        consumer2: { label: "Consumer 2 active", value: "" }
+      };
+      const malformedKey = "not-an-aegis-key";
+      const rateWindowMilliseconds = 10_250;
+      let selectedProfile = "consumer1";
+      let passedChecks = 0;
+      let totalChecks = 0;
+      let lastConsumer1RequestAt = 0;
+      let busy = false;
+
+      const elements = {
+        proxyUrl: document.querySelector("#proxy-url"),
+        seedOutput: document.querySelector("#seed-output"),
+        loadSeed: document.querySelector("#load-seed"),
+        importStatus: document.querySelector("#import-status"),
+        keyProfile: document.querySelector("#key-profile"),
+        selectedKey: document.querySelector("#selected-key"),
+        keyPrefix: document.querySelector("#key-prefix"),
+        demoJwt: document.querySelector("#demo-jwt"),
+        configState: document.querySelector("#config-state"),
+        passSummary: document.querySelector("#pass-summary"),
+        lastResult: document.querySelector("#last-result"),
+        consoleStatus: document.querySelector("#console-status"),
+        resultsBody: document.querySelector("#results-body"),
+        resultsWrap: document.querySelector("#results-wrap"),
+        emptyState: document.querySelector("#empty-state"),
+        clearLog: document.querySelector("#clear-log"),
+        floodCount: document.querySelector("#flood-count"),
+        progressWrap: document.querySelector("#progress-wrap"),
+        floodProgress: document.querySelector("#flood-progress"),
+        progressLabel: document.querySelector("#progress-label"),
+        crossNotice: document.querySelector("#cross-notice"),
+        scenarioButtons: [...document.querySelectorAll(".scenario-button")]
+      };
+
+      function isLoopbackProxy(rawUrl) {
+        try {
+          const parsed = new URL(rawUrl);
+          const hostname = parsed.hostname.toLowerCase().replace(/^\[|\]$/g, "");
+          return ["http:", "https:"].includes(parsed.protocol)
+            && ["localhost", "127.0.0.1", "::1"].includes(hostname)
+            && !parsed.username
+            && !parsed.password
+            && ["", "/"].includes(parsed.pathname)
+            && !parsed.search
+            && !parsed.hash;
+        } catch {
+          return false;
+        }
+      }
+
+      function parseSeedOutput(text) {
+        const mappings = {
+          AEGIS_CONSUMER1_KEY: "consumer1",
+          AEGIS_CONSUMER1_REVOKED_KEY: "revoked",
+          AEGIS_CONSUMER2_KEY: "consumer2"
+        };
+        const parsed = { keys: {}, jwt: "" };
+        for (const line of text.split(/\r?\n/)) {
+          const match = line.trim().match(/^export\s+(AEGIS_[A-Z0-9_]+)=['\"]?([^'\"]+)['\"]?$/);
+          if (!match) continue;
+          const [, name, value] = match;
+          if (mappings[name]) parsed.keys[mappings[name]] = value;
+          if (name === "AEGIS_DEMO_JWT") parsed.jwt = value;
+        }
+        return parsed;
+      }
+
+      function saveSelectedKey() {
+        profiles[selectedProfile].value = elements.selectedKey.value.trim();
+      }
+
+      function showSelectedKey() {
+        elements.selectedKey.value = profiles[selectedProfile].value;
+        const value = profiles[selectedProfile].value;
+        elements.keyPrefix.textContent = value
+          ? `${profiles[selectedProfile].label} · prefix ${value.slice(0, 8)}…`
+          : `${profiles[selectedProfile].label} · no key loaded`;
+      }
+
+      function updateConfigurationState() {
+        saveSelectedKey();
+        const ready = isLoopbackProxy(elements.proxyUrl.value.trim())
+          && Object.values(profiles).every((profile) => profile.value.startsWith("ak_"))
+          && elements.demoJwt.value.trim().split(".").length === 3;
+        elements.configState.textContent = ready ? "Ready" : "Incomplete";
+        elements.configState.classList.toggle("ready", ready);
+        elements.consoleStatus.textContent = ready ? "Ready to test" : "Needs seed data";
+        return ready;
+      }
+
+      function loadSeedValues() {
+        const parsed = parseSeedOutput(elements.seedOutput.value);
+        for (const [profile, value] of Object.entries(parsed.keys)) {
+          profiles[profile].value = value;
+        }
+        if (parsed.jwt) elements.demoJwt.value = parsed.jwt;
+        showSelectedKey();
+        const loadedCount = Object.keys(parsed.keys).length + (parsed.jwt ? 1 : 0);
+        elements.importStatus.textContent = loadedCount === 4
+          ? "Loaded all three dev API keys and the demo JWT."
+          : `Loaded ${loadedCount} of 4 values. Paste all export lines from the latest seed run.`;
+        elements.seedOutput.value = "";
+        updateConfigurationState();
+      }
+
+      function setBusy(nextBusy) {
+        busy = nextBusy;
+        for (const button of elements.scenarioButtons) button.disabled = busy;
+        elements.loadSeed.disabled = busy;
+      }
+
+      function verdictText(scenario, status, passed, expectedDescription) {
+        if (!passed) {
+          const observed = status === 0 ? "network error" : `HTTP ${status}`;
+          return `Unexpected: expected ${expectedDescription}, received ${observed}`;
+        }
+        if (status === 200) return "Correctly allowed through to the echo service (200)";
+        if (status === 429) return "Correctly rate limited by the proxy (429)";
+        return `Correctly blocked by the proxy (${status})`;
+      }
+
+      function appendResult({ scenario, status, passed, expectedDescription }) {
+        totalChecks += 1;
+        if (passed) passedChecks += 1;
+        elements.passSummary.textContent = `${passedChecks} / ${totalChecks}`;
+        elements.lastResult.textContent = passed ? "Defense passed" : "Check failed";
+
+        const row = document.createElement("tr");
+        const timeCell = document.createElement("td");
+        const scenarioCell = document.createElement("td");
+        const statusCell = document.createElement("td");
+        const verdictCell = document.createElement("td");
+        const statusBadge = document.createElement("span");
+        const verdict = document.createElement("span");
+
+        timeCell.textContent = new Date().toLocaleTimeString();
+        scenarioCell.textContent = scenario;
+        statusBadge.className = "status-code";
+        statusBadge.textContent = status === 0 ? "ERR" : String(status);
+        statusCell.append(statusBadge);
+        verdict.className = `verdict ${passed ? "pass" : "fail"}`;
+        verdict.textContent = verdictText(scenario, status, passed, expectedDescription);
+        verdictCell.append(verdict);
+        row.append(timeCell, scenarioCell, statusCell, verdictCell);
+        elements.resultsBody.prepend(row);
+        elements.emptyState.classList.add("hidden");
+        elements.resultsWrap.classList.remove("hidden");
+      }
+
+      async function directProbe(payload) {
+        const headers = { Accept: "application/json" };
+        if (payload.apiKey) headers["X-API-Key"] = payload.apiKey;
+        if (payload.jwt) headers.Authorization = `Bearer ${payload.jwt}`;
+        const response = await fetch(`${payload.proxyBaseUrl.replace(/\/$/, "")}/api/echo`, {
+          method: "GET",
+          headers,
+          cache: "no-store"
+        });
+        let body = null;
+        try { body = await response.json(); } catch { body = null; }
+        return { status: response.status, body };
+      }
+
+      async function relayProbe(payload) {
+        const response = await fetch("/__aegis_probe", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify(payload),
+          cache: "no-store"
+        });
+        if (!response.ok) throw new Error(`Local console relay returned ${response.status}`);
+        const result = await response.json();
+        if (!result.relay) throw new Error("Local console relay is not available");
+        return { status: result.proxy_status, body: result.body };
+      }
+
+      async function probe({ scenario, profile, omitKey = false, malformed = false }) {
+        if (!updateConfigurationState()) {
+          appendResult({
+            scenario,
+            status: 0,
+            passed: false,
+            expectedDescription: "complete local seed configuration"
+          });
+          return { status: 0, body: null };
+        }
+
+        const proxyBaseUrl = elements.proxyUrl.value.trim();
+        if (!isLoopbackProxy(proxyBaseUrl)) {
+          appendResult({
+            scenario,
+            status: 0,
+            passed: false,
+            expectedDescription: "a localhost proxy URL"
+          });
+          return { status: 0, body: null };
+        }
+        const apiKey = omitKey ? "" : malformed ? malformedKey : profiles[profile].value;
+        const payload = {
+          proxyBaseUrl,
+          apiKey,
+          jwt: elements.demoJwt.value.trim()
+        };
+        if (profile === "consumer1") lastConsumer1RequestAt = Date.now();
+
+        try {
+          return location.protocol === "file:"
+            ? await directProbe(payload)
+            : await relayProbe(payload);
+        } catch (error) {
+          return { status: 0, body: null, error: String(error) };
+        }
+      }
+
+      function echoReachedSafely(result) {
+        if (result.status !== 200 || !result.body || result.body.status !== "ok") return false;
+        const headers = Object.keys(result.body.headers || {}).map((name) => name.toLowerCase());
+        return !headers.includes("x-api-key")
+          && !headers.includes("authorization")
+          && Boolean(result.body.timestamp);
+      }
+
+      async function runSingle(config) {
+        if (busy) return;
+        setBusy(true);
+        try {
+          const result = await probe(config);
+          const passed = config.expectedStatuses.includes(result.status)
+            && (!config.requireEcho || echoReachedSafely(result));
+          appendResult({
+            scenario: config.scenario,
+            status: result.status,
+            passed,
+            expectedDescription: config.expectedDescription
+          });
+        } finally {
+          setBusy(false);
+        }
+      }
+
+      async function waitForFreshConsumer1Window() {
+        const remaining = rateWindowMilliseconds - (Date.now() - lastConsumer1RequestAt);
+        if (remaining <= 0) return;
+        elements.progressWrap.classList.add("visible");
+        const finishAt = Date.now() + remaining;
+        while (Date.now() < finishAt) {
+          const seconds = Math.max(0, Math.ceil((finishAt - Date.now()) / 1000));
+          elements.progressLabel.textContent = `Waiting ${seconds}s for a clean consumer1 rate window…`;
+          await new Promise((resolve) => setTimeout(resolve, 250));
+        }
+      }
+
+      async function runFlood() {
+        if (busy) return;
+        setBusy(true);
+        elements.crossNotice.classList.remove("visible");
+        const count = Math.max(4, Math.min(20, Number(elements.floodCount.value) || 5));
+        elements.floodCount.value = String(count);
+        elements.floodProgress.max = count;
+        elements.floodProgress.value = 0;
+        elements.progressWrap.classList.add("visible");
+        try {
+          await waitForFreshConsumer1Window();
+          for (let index = 1; index <= count; index += 1) {
+            elements.progressLabel.textContent = `Sending consumer1 request ${index} of ${count}…`;
+            const result = await probe({
+              scenario: `Flood request ${index}`,
+              profile: "consumer1"
+            });
+            const expectedStatus = index <= 3 ? 200 : 429;
+            const passed = result.status === expectedStatus
+              && (expectedStatus !== 200 || echoReachedSafely(result));
+            appendResult({
+              scenario: `Flood request ${index}`,
+              status: result.status,
+              passed,
+              expectedDescription: `HTTP ${expectedStatus}`
+            });
+            elements.floodProgress.value = index;
+          }
+          elements.progressLabel.textContent = "Flood complete. Check consumer2 isolation next.";
+          elements.crossNotice.classList.add("visible");
+        } finally {
+          setBusy(false);
+        }
+      }
+
+      elements.loadSeed.addEventListener("click", loadSeedValues);
+      elements.keyProfile.addEventListener("change", () => {
+        saveSelectedKey();
+        selectedProfile = elements.keyProfile.value;
+        showSelectedKey();
+        updateConfigurationState();
+      });
+      elements.selectedKey.addEventListener("input", updateConfigurationState);
+      elements.demoJwt.addEventListener("input", updateConfigurationState);
+      elements.proxyUrl.addEventListener("input", updateConfigurationState);
+
+      document.querySelector("#valid-request").addEventListener("click", () => runSingle({
+        scenario: "Valid Request",
+        profile: "consumer1",
+        expectedStatuses: [200],
+        expectedDescription: "HTTP 200 from the echo service",
+        requireEcho: true
+      }));
+      document.querySelector("#revoked-key").addEventListener("click", () => runSingle({
+        scenario: "Revoked Key",
+        profile: "revoked",
+        expectedStatuses: [403],
+        expectedDescription: "HTTP 403",
+        requireEcho: false
+      }));
+      document.querySelector("#no-api-key").addEventListener("click", () => runSingle({
+        scenario: "No API Key",
+        profile: "consumer1",
+        omitKey: true,
+        expectedStatuses: [401],
+        expectedDescription: "HTTP 401",
+        requireEcho: false
+      }));
+      document.querySelector("#malformed-key").addEventListener("click", () => runSingle({
+        scenario: "Malformed Key",
+        profile: "consumer1",
+        malformed: true,
+        expectedStatuses: [401],
+        expectedDescription: "HTTP 401",
+        requireEcho: false
+      }));
+      document.querySelector("#flood-test").addEventListener("click", runFlood);
+      document.querySelector("#cross-consumer").addEventListener("click", () => runSingle({
+        scenario: "Cross-Consumer Check",
+        profile: "consumer2",
+        expectedStatuses: [200],
+        expectedDescription: "HTTP 200 from the echo service",
+        requireEcho: true
+      }));
+
+      elements.clearLog.addEventListener("click", () => {
+        elements.resultsBody.replaceChildren();
+        elements.emptyState.classList.remove("hidden");
+        elements.resultsWrap.classList.add("hidden");
+        elements.crossNotice.classList.remove("visible");
+        passedChecks = 0;
+        totalChecks = 0;
+        elements.passSummary.textContent = "0 / 0";
+        elements.lastResult.textContent = "Not run";
+      });
+
+      window.AegisConsole = { isLoopbackProxy, parseSeedOutput, echoReachedSafely };
+      showSelectedKey();
+      updateConfigurationState();
+    })();
+  </script>
+</body>
+</html>
