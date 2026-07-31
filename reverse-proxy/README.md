@@ -52,20 +52,21 @@ send the same value.
 Validation results are cached in memory by a SHA-256 digest of the presented
 key. Raw API keys are never used as cache map keys.
 
-## JWT policy and validation
+## Policy synchronization and validation
 
-The proxy fetches the active JWT verification configuration and active
-rate-limit rules from:
+The proxy bootstraps/falls back through the REST policy endpoint, then receives
+authenticated server-streaming gRPC updates from the Control Plane on port
+50051. If the stream disconnects, it continues enforcing the last valid
+snapshot and reconnects with backoff.
 
 ```http
 GET /api/v1/internal/proxy-config
 X-Aegis-Internal-Token: <environment-provided shared token>
 ```
 
-Policy is cached locally. If refresh fails after an initial successful fetch,
-the proxy continues enforcing the last known policy. JWT validation supports
-HS256, RS256, and ES256, requires an expiration claim, and enforces issuer and
-audience when configured.
+JWT validation supports HS256, RS256, and ES256, requires an expiration claim,
+and enforces issuer and audience when configured. Policy also contains active
+rate limits, exact IP blocks, and RE2 threat patterns.
 
 ## Distributed rate limiting
 
@@ -74,3 +75,10 @@ with atomic Redis scripts. Matching precedence is API-key rule, then exact
 route rule, then global rule. Rejected requests receive HTTP 429,
 `Retry-After`, `X-RateLimit-Limit`, and `X-RateLimit-Remaining`. The proxy
 fails closed with HTTP 503 if Redis enforcement is unavailable.
+
+## Analytics
+
+Every outcome is sanitized and placed on a bounded non-blocking queue for the
+Control Plane. Events include only outcome, direct source IP, optional key/rule
+IDs, method, path, and status—never credentials, bodies, query strings, or
+arbitrary headers.

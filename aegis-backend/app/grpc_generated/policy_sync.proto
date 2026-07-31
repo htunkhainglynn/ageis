@@ -1,0 +1,15 @@
+syntax = "proto3";
+
+package aegis.policy.v1;
+
+option go_package = "github.com/htunkhainglynn/aegis/reverse-proxy/internal/policypb;policypb";
+
+message SubscribeRequest {}
+
+message PolicySnapshot {
+  bytes json_payload = 1;
+}
+
+service PolicySync {
+  rpc Subscribe(SubscribeRequest) returns (stream PolicySnapshot);
+}

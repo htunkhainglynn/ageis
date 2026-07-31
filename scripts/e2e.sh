@@ -31,7 +31,9 @@ export PROXY_PORT=$((PORT_BASE + 3))
 export DASHBOARD_PORT=$((PORT_BASE + 4))
 export VALIDATION_CACHE_TTL=1s
 export VALIDATION_NEGATIVE_CACHE_TTL=1s
-export POLICY_CACHE_TTL=1s
+export POLICY_CACHE_TTL=5m
+export GRPC_SYNC_INTERVAL_SECONDS=0.25
+export GRPC_RECONNECT_DELAY=0.25s
 
 compose() {
   docker compose -f "$COMPOSE_FILE" "$@"
@@ -166,6 +168,26 @@ sleep 2
 
 PROXY_CLIENT_IP=$(compose exec -T control-plane \
   python -c 'import socket; print(socket.gethostbyname(socket.gethostname()))')
+grpc_prime_code=$(compose exec -T \
+  -e E2E_API_KEY="$RAW_API_KEY" \
+  -e E2E_CLIENT_JWT="$CLIENT_JWT" \
+  control-plane \
+  python -c '
+import os
+import urllib.request
+
+request = urllib.request.Request(
+    "http://reverse-proxy:8080/",
+    headers={
+        "X-API-Key": os.environ["E2E_API_KEY"],
+        "Authorization": "Bearer " + os.environ["E2E_CLIENT_JWT"],
+    },
+)
+print(urllib.request.urlopen(request).status)
+')
+[ "$grpc_prime_code" = "200" ] ||
+  fail "gRPC policy priming request returned HTTP $grpc_prime_code"
+
 block_payload=$(jq -n \
   --arg ip_address "$PROXY_CLIENT_IP" \
   '{ip_address:$ip_address,reason:"E2E manual block"}')
@@ -177,7 +199,7 @@ block_code=$(request "$TMP_DIR/ip-block.json" \
 [ "$block_code" = "201" ] || fail "IP-block creation returned HTTP $block_code"
 IP_BLOCK_ID=$(jq -er '.data.id' "$TMP_DIR/ip-block.json")
 
-sleep 2
+sleep 1
 
 BLOCKED_RESULT=$(compose exec -T \
   -e E2E_API_KEY="$RAW_API_KEY" \
@@ -293,4 +315,4 @@ done
 [ "$analytics_attempts" -gt 0 ] ||
   fail "Proxy events did not appear in analytics within 30 seconds"
 
-echo "E2E passed: Control Plane -> reverse proxy -> upstream, including auth, threat/IP blocking, Redis rate limiting, and analytics."
+echo "E2E passed: Control Plane -> gRPC policy sync -> reverse proxy -> upstream, including auth, threat/IP blocking, Redis rate limiting, and analytics."

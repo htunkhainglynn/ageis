@@ -57,6 +57,9 @@ Verified on 2026-07-31 against the actual monorepo:
   time-window analytics summary/history APIs for Admin and Viewer roles, and a
   live traffic/security analytics dashboard. The proxy reports every outcome
   through a bounded non-blocking queue and flushes it during graceful shutdown.
+- Authenticated server-streaming gRPC policy synchronization from the Control
+  Plane to the proxy, with immediate in-memory updates, REST bootstrap/fallback,
+  reconnect backoff, and indefinite enforcement of the last valid snapshot.
 - Authenticated internal policy snapshot returning only active JWT validation
   material and active rate-limit rules for the reverse proxy.
 - Dashboard login and configuration pages for users, API keys, rate limits,
@@ -78,7 +81,7 @@ Verified on 2026-07-31 against the actual monorepo:
 
 Current checkpoint verification:
 
-- Control Plane: 40 pytest tests pass, none skipped; all migrations apply
+- Control Plane: 42 pytest tests pass, none skipped; all migrations apply
   successfully to PostgreSQL.
 - Dashboard: lint, production build, and 6 Node tests pass, none skipped.
 - Reverse proxy baseline: `go test -race ./...` and `go vet ./...` pass.
@@ -89,7 +92,6 @@ Current checkpoint verification:
 
 ### Not implemented
 
-- Control Plane-to-proxy gRPC configuration sync.
 - Automatic IP blocking.
 
 ## Key Decisions & Rationale
@@ -146,6 +148,11 @@ Current checkpoint verification:
   in-process channel; a single worker posts them to the authenticated internal
   API. A full queue drops events with a warning instead of delaying protected
   traffic, and graceful shutdown drains queued events.
+- **gRPC compatibility and fallback:** protobuf defines a stable authenticated
+  streaming RPC carrying the already-versioned policy snapshot as JSON bytes.
+  This avoids duplicating every policy field across two serializers. REST
+  supplies the initial/fallback snapshot; after the first stream update, a
+  disconnect retains the last valid policy and reconnects with backoff.
 
 ## Testing and Checkpoints
 

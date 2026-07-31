@@ -72,8 +72,13 @@ to both components through the environment.
 - `POST /internal/security-events` — ingest one sanitized proxy outcome; raw
   credentials, request bodies, and arbitrary headers are forbidden
 
-## Not yet built
-- gRPC server (Control Plane -> Proxy config streaming)
+## Internal gRPC Policy Sync
+- `aegis.policy.v1.PolicySync/Subscribe` is a server-streaming RPC on internal
+  port 50051.
+- Clients authenticate with `x-aegis-internal-token` metadata.
+- Each protobuf envelope carries the versioned policy snapshot; the proxy uses
+  REST for bootstrap/fallback, then applies stream updates immediately and
+  retains the last valid snapshot across disconnects.
 
 ## Reverse Proxy (Go)
 - Forwarding, authenticated API-key validation, JWT validation, Redis-backed

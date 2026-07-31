@@ -25,6 +25,8 @@ values = {
     "PROXY_PORT": "8080",
     "DASHBOARD_PORT": "3000",
     "UPSTREAM_PORT": "9000",
+    "GRPC_SYNC_INTERVAL_SECONDS": "2",
+    "GRPC_RECONNECT_DELAY": "1s",
 }
 
 for name, value in values.items():

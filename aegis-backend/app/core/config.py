@@ -84,6 +84,10 @@ class Settings(BaseSettings):
     BOOTSTRAP_ADMIN_PASSWORD: str = ""
     BOOTSTRAP_ADMIN_FULL_NAME: str = "Aegis Administrator"
     INTERNAL_API_TOKEN: str = ""
+    GRPC_HOST: str = "0.0.0.0"
+    GRPC_PORT: int = 50051
+    GRPC_SYNC_INTERVAL_SECONDS: float = 2.0
+    GRPC_ENABLED: bool = True
 
     LOG_LEVEL: str = "INFO"
 

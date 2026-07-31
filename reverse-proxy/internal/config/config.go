@@ -22,6 +22,8 @@ const (
 	defaultValidationTime  = 2 * time.Second
 	defaultShutdownTimeout = 10 * time.Second
 	defaultRedisAddr       = "localhost:6379"
+	defaultGRPCAddr        = "localhost:50051"
+	defaultGRPCReconnect   = time.Second
 )
 
 type Config struct {
@@ -41,6 +43,8 @@ type Config struct {
 	RedisAddr                string
 	RedisPassword            string
 	RedisDB                  int
+	GRPCPolicyAddr           string
+	GRPCReconnectDelay       time.Duration
 }
 
 func Load() (Config, error) {
@@ -74,6 +78,10 @@ func Load() (Config, error) {
 		return Config{}, err
 	}
 	shutdownTimeout, err := durationFromEnv("SHUTDOWN_TIMEOUT", defaultShutdownTimeout)
+	if err != nil {
+		return Config{}, err
+	}
+	grpcReconnect, err := durationFromEnv("GRPC_RECONNECT_DELAY", defaultGRPCReconnect)
 	if err != nil {
 		return Config{}, err
 	}
@@ -112,6 +120,8 @@ func Load() (Config, error) {
 		RedisAddr:                envOrDefault("REDIS_ADDR", defaultRedisAddr),
 		RedisPassword:            os.Getenv("REDIS_PASSWORD"),
 		RedisDB:                  redisDB,
+		GRPCPolicyAddr:           envOrDefault("GRPC_POLICY_ADDR", defaultGRPCAddr),
+		GRPCReconnectDelay:       grpcReconnect,
 	}, nil
 }
 

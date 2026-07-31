@@ -9,6 +9,7 @@ from app.core.database import check_database_health, close_database, init_databa
 from app.core.exception_handlers import register_exception_handlers
 from app.core.redis import check_redis_health, close_redis, init_redis
 from app.middlewares.logging import CorrelationIdMiddleware, RequestLoggingMiddleware
+from app.grpc_server import start_policy_grpc_server
 from app.routers.base import api_router
 from app.schemas.base import ApiResponse, success_response
 from app.schemas.health import HealthStatusData
@@ -24,6 +25,13 @@ async def lifespan(app: FastAPI):
     app.state.redis_ready = await init_redis()
     if app.state.database_ready:
         await bootstrap_from_environment()
+    grpc_server = None
+    if (
+        app.state.database_ready
+        and settings.GRPC_ENABLED
+        and settings.INTERNAL_API_TOKEN.strip()
+    ):
+        grpc_server, _ = await start_policy_grpc_server()
 
     if not app.state.database_ready:
         logger.warning("Application started without database connectivity")
@@ -32,6 +40,8 @@ async def lifespan(app: FastAPI):
 
     yield
 
+    if grpc_server is not None:
+        await grpc_server.stop(grace=5)
     await close_database()
     await close_redis()
 

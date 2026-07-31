@@ -65,11 +65,26 @@ func main() {
 		logger.Error("creating Control Plane policy client failed", "error", err)
 		os.Exit(1)
 	}
-	policyProvider, err := controlplane.NewCachedPolicyProvider(policyClient, cfg.PolicyCacheTTL)
+	restPolicyProvider, err := controlplane.NewCachedPolicyProvider(policyClient, cfg.PolicyCacheTTL)
 	if err != nil {
 		logger.Error("creating policy cache failed", "error", err)
 		os.Exit(1)
 	}
+	policyProvider := controlplane.NewStreamingPolicyProvider(restPolicyProvider)
+	grpcSubscriber, err := controlplane.NewGRPCPolicySubscriber(
+		cfg.GRPCPolicyAddr,
+		cfg.InternalAPIToken,
+		cfg.GRPCReconnectDelay,
+		policyProvider,
+		logger,
+	)
+	if err != nil {
+		logger.Error("creating gRPC policy subscriber failed", "error", err)
+		os.Exit(1)
+	}
+	streamCtx, stopPolicyStream := context.WithCancel(context.Background())
+	defer stopPolicyStream()
+	go grpcSubscriber.Run(streamCtx)
 	jwtValidator, err := proxycore.NewPolicyJWTValidator(policyProvider)
 	if err != nil {
 		logger.Error("creating JWT validator failed", "error", err)
@@ -164,6 +179,7 @@ func main() {
 		}
 	}
 
+	stopPolicyStream()
 	shutdownCtx, cancel := context.WithTimeout(context.Background(), cfg.ShutdownTimeout)
 	defer cancel()
 	if err := server.Shutdown(shutdownCtx); err != nil {
