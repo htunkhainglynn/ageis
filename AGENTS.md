@@ -53,6 +53,9 @@ Verified on 2026-07-31 against the actual monorepo:
 - Admin-only threat-rule CRUD/dashboard, RE2-compatible pattern validation,
   active-rule policy distribution, and fail-closed proxy matching against the
   HTTP method plus request path/query before forwarding.
+- Sanitized security-event persistence, authenticated internal ingestion,
+  time-window analytics summary/history APIs for Admin and Viewer roles, and a
+  live traffic/security analytics dashboard.
 - Authenticated internal policy snapshot returning only active JWT validation
   material and active rate-limit rules for the reverse proxy.
 - Dashboard login and configuration pages for users, API keys, rate limits,
@@ -74,17 +77,21 @@ Verified on 2026-07-31 against the actual monorepo:
 
 Current checkpoint verification:
 
-- Control Plane: 38 pytest tests pass, none skipped; all migrations apply
+- Control Plane: 40 pytest tests pass, none skipped; all migrations apply
   successfully to PostgreSQL.
-- Dashboard: lint, production build, and 5 Node tests pass, none skipped.
+- Dashboard: lint, production build, and 6 Node tests pass, none skipped.
 - Reverse proxy baseline: `go test -race ./...` and `go vet ./...` pass.
 - Full stack: the isolated `scripts/e2e.sh` test passes against fresh
   PostgreSQL and Redis volumes and real component containers, including
   manual block/unblock behavior for an actual Compose-network client.
 
+### Partially implemented
+
+- Analytics storage, APIs, and dashboard are implemented; non-blocking
+  reverse-proxy event delivery and real-event E2E verification are next.
+
 ### Not implemented
 
-- Security-event persistence and analytics APIs/dashboard data.
 - Control Plane-to-proxy gRPC configuration sync.
 - Automatic IP blocking.
 
@@ -135,6 +142,9 @@ Current checkpoint verification:
   expressions over `METHOD path?query`. Bodies and arbitrary headers are not
   inspected, keeping streaming requests intact and avoiding accidental secret
   capture; RE2 provides linear-time matching without backtracking attacks.
+- **Analytics data minimization:** security events persist outcome, direct
+  source IP, optional API-key/rule IDs, method, path, and status only. They
+  never contain raw API keys, JWTs, request bodies, or arbitrary headers.
 
 ## Testing and Checkpoints
 

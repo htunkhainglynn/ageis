@@ -75,3 +75,25 @@ export type ThreatRule = {
   created_at: string;
   updated_at: string;
 };
+
+export type AnalyticsSummary = {
+  hours: number;
+  total_requests: number;
+  forwarded_requests: number;
+  blocked_requests: number;
+  rate_limited_requests: number;
+  server_errors: number;
+  events_by_type: Record<string, number>;
+};
+
+export type SecurityEvent = {
+  id: number;
+  event_type: string;
+  source_ip: string;
+  api_key_id: number | null;
+  rule_id: number | null;
+  method: string;
+  path: string;
+  status_code: number;
+  created_at: string;
+};

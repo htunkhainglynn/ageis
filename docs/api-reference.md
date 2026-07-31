@@ -55,6 +55,10 @@ Base path: `/api/v1/`. Keep this synchronized with the generated OpenAPI schema.
 - `PATCH /threat-rules/{id}`
 - `DELETE /threat-rules/{id}` — soft delete (status=disabled)
 
+### Analytics (Admin or Viewer)
+- `GET /analytics/summary?hours` — outcome totals and event-type counts
+- `GET /analytics/events?hours&skip&limit` — recent sanitized proxy outcomes
+
 ### Internal Reverse-Proxy Contract
 
 All internal routes require `X-Aegis-Internal-Token`, whose value is supplied
@@ -65,9 +69,10 @@ to both components through the environment.
 - `GET /internal/proxy-config` — returns active JWT verification, rate-limit,
   IP-block, and threat-rule policy. HS256 requires decrypted shared verification
   material; RS256/ES256 return only the public verification key.
+- `POST /internal/security-events` — ingest one sanitized proxy outcome; raw
+  credentials, request bodies, and arbitrary headers are forbidden
 
 ## Not yet built
-- Metrics/analytics endpoints
 - gRPC server (Control Plane -> Proxy config streaming)
 
 ## Reverse Proxy (Go)

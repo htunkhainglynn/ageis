@@ -65,6 +65,16 @@ async def require_api_key_manager(current_user: User = Depends(get_current_user)
     return current_user
 
 
+async def require_analytics_viewer(current_user: User = Depends(get_current_user)) -> User:
+    """Allow administrators and read-only viewers to inspect analytics."""
+    if current_user.role not in {UserRole.ADMIN.value, UserRole.VIEWER.value}:
+        raise ForbiddenException(
+            error_code="ANALYTICS_FORBIDDEN",
+            message="You are not allowed to view analytics.",
+        )
+    return current_user
+
+
 async def require_internal_api_token(
     internal_token: str | None = Header(
         default=None,

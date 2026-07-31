@@ -86,3 +86,14 @@ test("threat rule management remains Admin-only in the dashboard", async () => {
   assert.match(page, /apiRequest<RuleList>\("\/threat-rules\?/);
   assert.match(page, /RE2-compatible patterns/i);
 });
+
+test("analytics uses live role-protected Control Plane data", async () => {
+  const page = await readFile(
+    new URL("../app/analytics/page.tsx", import.meta.url),
+    "utf8",
+  );
+  assert.match(page, /<ProtectedPage roles=\{\["admin", "viewer"\]\}>/);
+  assert.match(page, /\/analytics\/summary\?hours=/);
+  assert.match(page, /\/analytics\/events\?hours=/);
+  assert.doesNotMatch(page, /Coming soon/i);
+});

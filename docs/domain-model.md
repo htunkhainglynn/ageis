@@ -50,13 +50,15 @@ Alembic migrations in the repo — this file is a map/summary, not canonical.
 - Constraint: only one active block for an address; historical disabled rows
   are retained
 
-### SecurityEvent (planned, not yet built)
-- id, event_type, source_ip, api_key_id (nullable), rule_triggered, created_at
+### SecurityEvent
+- id, event_type, source_ip, api_key_id (nullable), rule_id (nullable)
+- method, path, status_code, created_at
+- Raw credentials, request bodies, and arbitrary headers are never persisted
 
 ## Relationships
 - User 1 --- * APIKey (owns)
 - APIKey 0..1 --- * RateLimitRule (a rule may optionally scope to a specific key)
-- ThreatRule / IPBlock --- * SecurityEvent (event linkage planned)
+- ThreatRule / IPBlock --- * SecurityEvent (logical linkage by rule/event type)
 
 ## Key Constraints to Preserve
 - One active RateLimitRule per scope (scope_type + scope_value)
