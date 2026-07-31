@@ -55,7 +55,8 @@ Verified on 2026-07-31 against the actual monorepo:
   HTTP method plus request path/query before forwarding.
 - Sanitized security-event persistence, authenticated internal ingestion,
   time-window analytics summary/history APIs for Admin and Viewer roles, and a
-  live traffic/security analytics dashboard.
+  live traffic/security analytics dashboard. The proxy reports every outcome
+  through a bounded non-blocking queue and flushes it during graceful shutdown.
 - Authenticated internal policy snapshot returning only active JWT validation
   material and active rate-limit rules for the reverse proxy.
 - Dashboard login and configuration pages for users, API keys, rate limits,
@@ -83,12 +84,8 @@ Current checkpoint verification:
 - Reverse proxy baseline: `go test -race ./...` and `go vet ./...` pass.
 - Full stack: the isolated `scripts/e2e.sh` test passes against fresh
   PostgreSQL and Redis volumes and real component containers, including
-  manual block/unblock behavior for an actual Compose-network client.
-
-### Partially implemented
-
-- Analytics storage, APIs, and dashboard are implemented; non-blocking
-  reverse-proxy event delivery and real-event E2E verification are next.
+  manual block/unblock behavior for an actual Compose-network client and
+  analytics verification for blocks, forwards, and rate limiting.
 
 ### Not implemented
 
@@ -145,6 +142,10 @@ Current checkpoint verification:
 - **Analytics data minimization:** security events persist outcome, direct
   source IP, optional API-key/rule IDs, method, path, and status only. They
   never contain raw API keys, JWTs, request bodies, or arbitrary headers.
+- **Non-blocking event delivery:** proxy requests enqueue events into a bounded
+  in-process channel; a single worker posts them to the authenticated internal
+  API. A full queue drops events with a warning instead of delaying protected
+  traffic, and graceful shutdown drains queued events.
 
 ## Testing and Checkpoints
 

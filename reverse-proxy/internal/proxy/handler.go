@@ -39,6 +39,7 @@ type Handler struct {
 	rateLimiter       RateLimiter
 	ipBlocker         IPBlocker
 	threatDetector    ThreatDetector
+	eventReporter     EventReporter
 	apiKeyHeader      string
 	validationTimeout time.Duration
 }
@@ -56,6 +57,7 @@ func NewHandler(
 	rateLimiter RateLimiter,
 	ipBlocker IPBlocker,
 	threatDetector ThreatDetector,
+	eventReporter EventReporter,
 	apiKeyHeader string,
 	validationTimeout time.Duration,
 	logger *slog.Logger,
@@ -77,6 +79,9 @@ func NewHandler(
 	}
 	if threatDetector == nil {
 		return nil, errors.New("threat detector is required")
+	}
+	if eventReporter == nil {
+		return nil, errors.New("event reporter is required")
 	}
 	if strings.TrimSpace(apiKeyHeader) == "" {
 		return nil, errors.New("API key header is required")
@@ -101,41 +106,55 @@ func NewHandler(
 		rateLimiter:       rateLimiter,
 		ipBlocker:         ipBlocker,
 		threatDetector:    threatDetector,
+		eventReporter:     eventReporter,
 		apiKeyHeader:      apiKeyHeader,
 		validationTimeout: validationTimeout,
 	}, nil
 }
 
 func (h *Handler) ServeHTTP(w http.ResponseWriter, r *http.Request) {
+	event := SecurityEvent{
+		EventType: "proxy_error", SourceIP: sourceIP(r.RemoteAddr),
+		Method: r.Method, Path: r.URL.Path, StatusCode: http.StatusInternalServerError,
+	}
+	defer func() { h.eventReporter.Report(event) }()
+
 	ctx, cancel := context.WithTimeout(r.Context(), h.validationTimeout)
 	defer cancel()
 
 	blocked, err := h.ipBlocker.IsBlocked(ctx, r.RemoteAddr)
 	if err != nil {
 		if errors.Is(err, ErrClientIPInvalid) {
+			event.EventType, event.StatusCode = "client_ip_invalid", http.StatusBadRequest
 			writeError(w, http.StatusBadRequest, "CLIENT_IP_INVALID", "The client network address is invalid.")
 		} else {
+			event.EventType, event.StatusCode = "policy_unavailable", http.StatusServiceUnavailable
 			writeError(w, http.StatusServiceUnavailable, "IP_BLOCK_POLICY_UNAVAILABLE", "IP block policy is temporarily unavailable.")
 		}
 		return
 	}
 	if blocked {
+		event.EventType, event.StatusCode = "ip_blocked", http.StatusForbidden
 		writeError(w, http.StatusForbidden, "IP_BLOCKED", "Requests from this IP address are blocked.")
 		return
 	}
 
 	threat, err := h.threatDetector.Detect(ctx, r)
 	if err != nil {
+		event.EventType, event.StatusCode = "policy_unavailable", http.StatusServiceUnavailable
 		writeError(w, http.StatusServiceUnavailable, "THREAT_POLICY_UNAVAILABLE", "Threat policy is temporarily unavailable.")
 		return
 	}
 	if threat != nil {
+		event.EventType, event.StatusCode = "threat_detected", http.StatusForbidden
+		event.RuleID = &threat.RuleID
 		writeError(w, http.StatusForbidden, "THREAT_DETECTED", "The request matched a security rule.")
 		return
 	}
 
 	key := strings.TrimSpace(r.Header.Get(h.apiKeyHeader))
 	if key == "" {
+		event.EventType, event.StatusCode = "api_key_missing", http.StatusUnauthorized
 		writeError(w, http.StatusUnauthorized, "API_KEY_MISSING", fmt.Sprintf("%s header is required.", h.apiKeyHeader))
 		return
 	}
@@ -144,22 +163,29 @@ func (h *Handler) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 	if err != nil {
 		switch {
 		case errors.Is(err, ErrKeyNotFound):
+			event.EventType, event.StatusCode = "api_key_invalid", http.StatusUnauthorized
 			writeError(w, http.StatusUnauthorized, "API_KEY_INVALID", "The API key is invalid.")
 		case errors.Is(err, ErrKeyRevoked):
+			event.EventType, event.StatusCode = "api_key_revoked", http.StatusForbidden
 			writeError(w, http.StatusForbidden, "API_KEY_REVOKED", "The API key has been revoked.")
 		case errors.Is(err, ErrKeyExpired):
+			event.EventType, event.StatusCode = "api_key_expired", http.StatusForbidden
 			writeError(w, http.StatusForbidden, "API_KEY_EXPIRED", "The API key has expired.")
 		default:
+			event.EventType, event.StatusCode = "validation_unavailable", http.StatusBadGateway
 			writeError(w, http.StatusBadGateway, "CONTROL_PLANE_UNAVAILABLE", "API key validation is temporarily unavailable.")
 		}
 		return
 	}
+	event.APIKeyID = &keyInfo.ID
 
 	rawJWT, err := bearerToken(r.Header.Get("Authorization"))
 	if err != nil {
 		if errors.Is(err, ErrJWTMissing) {
+			event.EventType, event.StatusCode = "jwt_missing", http.StatusUnauthorized
 			writeError(w, http.StatusUnauthorized, "JWT_MISSING", "Authorization Bearer token is required.")
 		} else {
+			event.EventType, event.StatusCode = "jwt_invalid", http.StatusUnauthorized
 			writeError(w, http.StatusUnauthorized, "JWT_INVALID", "The JWT is invalid.")
 		}
 		return
@@ -167,12 +193,16 @@ func (h *Handler) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 	if err := h.jwtValidator.ValidateJWT(ctx, rawJWT); err != nil {
 		switch {
 		case errors.Is(err, ErrJWTMissing):
+			event.EventType, event.StatusCode = "jwt_missing", http.StatusUnauthorized
 			writeError(w, http.StatusUnauthorized, "JWT_MISSING", "Authorization Bearer token is required.")
 		case errors.Is(err, ErrJWTExpired):
+			event.EventType, event.StatusCode = "jwt_expired", http.StatusUnauthorized
 			writeError(w, http.StatusUnauthorized, "JWT_EXPIRED", "The JWT has expired.")
 		case errors.Is(err, ErrJWTInvalid):
+			event.EventType, event.StatusCode = "jwt_invalid", http.StatusUnauthorized
 			writeError(w, http.StatusUnauthorized, "JWT_INVALID", "The JWT is invalid.")
 		default:
+			event.EventType, event.StatusCode = "policy_unavailable", http.StatusBadGateway
 			writeError(w, http.StatusBadGateway, "CONTROL_PLANE_UNAVAILABLE", "JWT validation policy is temporarily unavailable.")
 		}
 		return
@@ -180,6 +210,7 @@ func (h *Handler) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 
 	rateLimitResult, err := h.rateLimiter.Allow(ctx, keyInfo, r.URL.Path)
 	if err != nil {
+		event.EventType, event.StatusCode = "rate_limit_unavailable", http.StatusServiceUnavailable
 		writeError(w, http.StatusServiceUnavailable, "RATE_LIMIT_UNAVAILABLE", "Rate limiting is temporarily unavailable.")
 		return
 	}
@@ -188,6 +219,7 @@ func (h *Handler) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 		w.Header().Set("X-RateLimit-Remaining", strconv.FormatInt(rateLimitResult.Remaining, 10))
 	}
 	if !rateLimitResult.Allowed {
+		event.EventType, event.StatusCode = "rate_limited", http.StatusTooManyRequests
 		retrySeconds := int64(math.Ceil(rateLimitResult.RetryAfter.Seconds()))
 		if retrySeconds < 1 {
 			retrySeconds = 1
@@ -201,7 +233,36 @@ func (h *Handler) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 	forwardRequest.Header = r.Header.Clone()
 	forwardRequest.Header.Del(h.apiKeyHeader)
 	forwardRequest.Header.Del("Authorization")
-	h.forwarder.ServeHTTP(w, forwardRequest)
+	capture := &proxyStatusRecorder{ResponseWriter: w, status: http.StatusOK}
+	h.forwarder.ServeHTTP(capture, forwardRequest)
+	event.StatusCode = capture.status
+	if capture.status >= 500 {
+		event.EventType = "upstream_error"
+	} else {
+		event.EventType = "request_forwarded"
+	}
+}
+
+func sourceIP(remoteAddr string) string {
+	address, err := parseClientIP(remoteAddr)
+	if err != nil {
+		return "unknown"
+	}
+	return address.String()
+}
+
+type proxyStatusRecorder struct {
+	http.ResponseWriter
+	status int
+}
+
+func (r *proxyStatusRecorder) WriteHeader(status int) {
+	r.status = status
+	r.ResponseWriter.WriteHeader(status)
+}
+
+func (r *proxyStatusRecorder) Unwrap() http.ResponseWriter {
+	return r.ResponseWriter
 }
 
 func bearerToken(value string) (string, error) {

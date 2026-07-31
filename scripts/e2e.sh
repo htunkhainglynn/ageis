@@ -272,4 +272,25 @@ third_code=$(request "$TMP_DIR/third.json" \
 jq -e '.errorCode == "RATE_LIMIT_EXCEEDED"' "$TMP_DIR/third.json" >/dev/null ||
   fail "Rate-limit error contract is incorrect"
 
-echo "E2E passed: Control Plane -> reverse proxy -> upstream, including auth, threat/IP blocking, and Redis rate limiting."
+analytics_attempts=30
+while [ "$analytics_attempts" -gt 0 ]; do
+  analytics_code=$(request "$TMP_DIR/analytics.json" \
+    -H "Authorization: Bearer $ACCESS_TOKEN" \
+    "$CONTROL_URL/api/v1/analytics/summary?hours=1")
+  if [ "$analytics_code" = "200" ] &&
+    jq -e '
+      .data.total_requests >= 8 and
+      .data.events_by_type.ip_blocked >= 1 and
+      .data.events_by_type.threat_detected >= 1 and
+      .data.events_by_type.request_forwarded >= 2 and
+      .data.events_by_type.rate_limited >= 1
+    ' "$TMP_DIR/analytics.json" >/dev/null; then
+    break
+  fi
+  analytics_attempts=$((analytics_attempts - 1))
+  sleep 1
+done
+[ "$analytics_attempts" -gt 0 ] ||
+  fail "Proxy events did not appear in analytics within 30 seconds"
+
+echo "E2E passed: Control Plane -> reverse proxy -> upstream, including auth, threat/IP blocking, Redis rate limiting, and analytics."

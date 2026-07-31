@@ -14,6 +14,7 @@ const (
 	defaultListenAddr      = ":8080"
 	defaultValidationPath  = "/api/v1/api-keys/validate"
 	defaultPolicyPath      = "/api/v1/internal/proxy-config"
+	defaultEventPath       = "/api/v1/internal/security-events"
 	defaultAPIKeyHeader    = "X-API-Key"
 	defaultValidationTTL   = 30 * time.Second
 	defaultNegativeTTL     = 5 * time.Second
@@ -29,6 +30,7 @@ type Config struct {
 	ControlPlaneURL          *url.URL
 	ControlPlaneValidatePath string
 	ControlPlanePolicyPath   string
+	ControlPlaneEventPath    string
 	InternalAPIToken         string
 	APIKeyHeader             string
 	ValidationTimeout        time.Duration
@@ -88,6 +90,10 @@ func Load() (Config, error) {
 	if !strings.HasPrefix(policyPath, "/") {
 		return Config{}, errors.New("CONTROL_PLANE_POLICY_PATH must start with /")
 	}
+	eventPath := envOrDefault("CONTROL_PLANE_EVENT_PATH", defaultEventPath)
+	if !strings.HasPrefix(eventPath, "/") {
+		return Config{}, errors.New("CONTROL_PLANE_EVENT_PATH must start with /")
+	}
 
 	return Config{
 		ListenAddr:               envOrDefault("LISTEN_ADDR", defaultListenAddr),
@@ -95,6 +101,7 @@ func Load() (Config, error) {
 		ControlPlaneURL:          controlPlaneURL,
 		ControlPlaneValidatePath: validationPath,
 		ControlPlanePolicyPath:   policyPath,
+		ControlPlaneEventPath:    eventPath,
 		InternalAPIToken:         internalAPIToken,
 		APIKeyHeader:             envOrDefault("API_KEY_HEADER", defaultAPIKeyHeader),
 		ValidationTimeout:        validationTimeout,

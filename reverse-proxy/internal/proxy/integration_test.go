@@ -129,6 +129,7 @@ func TestAPIKeyValidationAndForwardingIntegration(t *testing.T) {
 				threatDetectorFunc(func(context.Context, *http.Request) (*proxycore.ThreatMatch, error) {
 					return nil, nil
 				}),
+				eventReporterFunc(func(proxycore.SecurityEvent) {}),
 				"X-API-Key",
 				time.Second,
 				slog.New(slog.NewTextHandler(io.Discard, nil)),
@@ -202,4 +203,10 @@ func (f threatDetectorFunc) Detect(
 	request *http.Request,
 ) (*proxycore.ThreatMatch, error) {
 	return f(ctx, request)
+}
+
+type eventReporterFunc func(proxycore.SecurityEvent)
+
+func (f eventReporterFunc) Report(event proxycore.SecurityEvent) {
+	f(event)
 }

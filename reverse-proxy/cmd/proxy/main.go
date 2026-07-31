@@ -107,6 +107,20 @@ func main() {
 		logger.Error("creating threat detector failed", "error", err)
 		os.Exit(1)
 	}
+	eventReporter, err := controlplane.NewAsyncEventReporter(
+		httpClient,
+		cfg.ControlPlaneURL,
+		cfg.ControlPlaneEventPath,
+		cfg.InternalAPIToken,
+		cfg.ValidationTimeout,
+		1000,
+		logger,
+	)
+	if err != nil {
+		logger.Error("creating event reporter failed", "error", err)
+		os.Exit(1)
+	}
+	defer eventReporter.Close()
 	proxyHandler, err := proxycore.NewHandler(
 		cfg.BackendURL,
 		validator,
@@ -114,6 +128,7 @@ func main() {
 		rateLimiter,
 		ipBlocker,
 		threatDetector,
+		eventReporter,
 		cfg.APIKeyHeader,
 		cfg.ValidationTimeout,
 		logger,

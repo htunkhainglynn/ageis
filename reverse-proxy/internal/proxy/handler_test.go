@@ -43,6 +43,14 @@ type fakeThreatDetector struct {
 	calls atomic.Int32
 }
 
+type fakeEventReporter struct {
+	events []SecurityEvent
+}
+
+func (f *fakeEventReporter) Report(event SecurityEvent) {
+	f.events = append(f.events, event)
+}
+
 func (f *fakeThreatDetector) Detect(
 	_ context.Context,
 	_ *http.Request,
@@ -144,6 +152,7 @@ func TestHandler(t *testing.T) {
 			rateLimiter := &fakeRateLimiter{result: tt.rateLimitResult, err: tt.rateLimitError}
 			ipBlocker := &fakeIPBlocker{blocked: tt.ipBlocked, err: tt.ipBlockError}
 			threatDetector := &fakeThreatDetector{err: tt.threatError}
+			eventReporter := &fakeEventReporter{}
 			if tt.threatMatch {
 				threatDetector.match = &ThreatMatch{RuleID: 1, Severity: "high"}
 			}
@@ -154,6 +163,7 @@ func TestHandler(t *testing.T) {
 				rateLimiter,
 				ipBlocker,
 				threatDetector,
+				eventReporter,
 				"X-API-Key",
 				time.Second,
 				slog.New(slog.NewTextHandler(io.Discard, nil)),
@@ -174,6 +184,9 @@ func TestHandler(t *testing.T) {
 
 			if recorder.Code != tt.wantStatus {
 				t.Fatalf("status = %d, want %d; body=%s", recorder.Code, tt.wantStatus, recorder.Body.String())
+			}
+			if len(eventReporter.events) != 1 || eventReporter.events[0].StatusCode != tt.wantStatus {
+				t.Fatalf("reported events = %#v, want one HTTP %d event", eventReporter.events, tt.wantStatus)
 			}
 			if got := backendCalls.Load(); got != tt.wantBackendCalls {
 				t.Fatalf("backend calls = %d, want %d", got, tt.wantBackendCalls)
@@ -211,6 +224,7 @@ func TestHandlerRespectsValidationTimeout(t *testing.T) {
 		&fakeRateLimiter{result: RateLimitResult{Allowed: true}},
 		&fakeIPBlocker{},
 		&fakeThreatDetector{},
+		&fakeEventReporter{},
 		"X-API-Key",
 		10*time.Millisecond,
 		slog.New(slog.NewTextHandler(io.Discard, nil)),
@@ -244,6 +258,7 @@ func TestNewHandlerValidation(t *testing.T) {
 	rateLimiter := &fakeRateLimiter{}
 	ipBlocker := &fakeIPBlocker{}
 	threatDetector := &fakeThreatDetector{}
+	eventReporter := &fakeEventReporter{}
 
 	tests := []struct {
 		name      string
@@ -253,26 +268,28 @@ func TestNewHandlerValidation(t *testing.T) {
 		limiter   RateLimiter
 		blocker   IPBlocker
 		detector  ThreatDetector
+		reporter  EventReporter
 		header    string
 		timeout   time.Duration
 		logger    *slog.Logger
 	}{
-		{name: "missing backend", validator: validator, jwt: jwtValidator, limiter: rateLimiter, blocker: ipBlocker, detector: threatDetector, header: "X-API-Key", timeout: time.Second, logger: logger},
-		{name: "missing validator", backend: backendURL, jwt: jwtValidator, limiter: rateLimiter, blocker: ipBlocker, detector: threatDetector, header: "X-API-Key", timeout: time.Second, logger: logger},
-		{name: "missing JWT validator", backend: backendURL, validator: validator, limiter: rateLimiter, blocker: ipBlocker, detector: threatDetector, header: "X-API-Key", timeout: time.Second, logger: logger},
-		{name: "missing rate limiter", backend: backendURL, validator: validator, jwt: jwtValidator, blocker: ipBlocker, detector: threatDetector, header: "X-API-Key", timeout: time.Second, logger: logger},
-		{name: "missing IP blocker", backend: backendURL, validator: validator, jwt: jwtValidator, limiter: rateLimiter, detector: threatDetector, header: "X-API-Key", timeout: time.Second, logger: logger},
-		{name: "missing threat detector", backend: backendURL, validator: validator, jwt: jwtValidator, limiter: rateLimiter, blocker: ipBlocker, header: "X-API-Key", timeout: time.Second, logger: logger},
-		{name: "missing header", backend: backendURL, validator: validator, jwt: jwtValidator, limiter: rateLimiter, blocker: ipBlocker, detector: threatDetector, timeout: time.Second, logger: logger},
-		{name: "invalid timeout", backend: backendURL, validator: validator, jwt: jwtValidator, limiter: rateLimiter, blocker: ipBlocker, detector: threatDetector, header: "X-API-Key", logger: logger},
-		{name: "missing logger", backend: backendURL, validator: validator, jwt: jwtValidator, limiter: rateLimiter, blocker: ipBlocker, detector: threatDetector, header: "X-API-Key", timeout: time.Second},
+		{name: "missing backend", validator: validator, jwt: jwtValidator, limiter: rateLimiter, blocker: ipBlocker, detector: threatDetector, reporter: eventReporter, header: "X-API-Key", timeout: time.Second, logger: logger},
+		{name: "missing validator", backend: backendURL, jwt: jwtValidator, limiter: rateLimiter, blocker: ipBlocker, detector: threatDetector, reporter: eventReporter, header: "X-API-Key", timeout: time.Second, logger: logger},
+		{name: "missing JWT validator", backend: backendURL, validator: validator, limiter: rateLimiter, blocker: ipBlocker, detector: threatDetector, reporter: eventReporter, header: "X-API-Key", timeout: time.Second, logger: logger},
+		{name: "missing rate limiter", backend: backendURL, validator: validator, jwt: jwtValidator, blocker: ipBlocker, detector: threatDetector, reporter: eventReporter, header: "X-API-Key", timeout: time.Second, logger: logger},
+		{name: "missing IP blocker", backend: backendURL, validator: validator, jwt: jwtValidator, limiter: rateLimiter, detector: threatDetector, reporter: eventReporter, header: "X-API-Key", timeout: time.Second, logger: logger},
+		{name: "missing threat detector", backend: backendURL, validator: validator, jwt: jwtValidator, limiter: rateLimiter, blocker: ipBlocker, reporter: eventReporter, header: "X-API-Key", timeout: time.Second, logger: logger},
+		{name: "missing event reporter", backend: backendURL, validator: validator, jwt: jwtValidator, limiter: rateLimiter, blocker: ipBlocker, detector: threatDetector, header: "X-API-Key", timeout: time.Second, logger: logger},
+		{name: "missing header", backend: backendURL, validator: validator, jwt: jwtValidator, limiter: rateLimiter, blocker: ipBlocker, detector: threatDetector, reporter: eventReporter, timeout: time.Second, logger: logger},
+		{name: "invalid timeout", backend: backendURL, validator: validator, jwt: jwtValidator, limiter: rateLimiter, blocker: ipBlocker, detector: threatDetector, reporter: eventReporter, header: "X-API-Key", logger: logger},
+		{name: "missing logger", backend: backendURL, validator: validator, jwt: jwtValidator, limiter: rateLimiter, blocker: ipBlocker, detector: threatDetector, reporter: eventReporter, header: "X-API-Key", timeout: time.Second},
 	}
 
 	for _, tt := range tests {
 		tt := tt
 		t.Run(tt.name, func(t *testing.T) {
 			t.Parallel()
-			if _, err := NewHandler(tt.backend, tt.validator, tt.jwt, tt.limiter, tt.blocker, tt.detector, tt.header, tt.timeout, tt.logger); err == nil {
+			if _, err := NewHandler(tt.backend, tt.validator, tt.jwt, tt.limiter, tt.blocker, tt.detector, tt.reporter, tt.header, tt.timeout, tt.logger); err == nil {
 				t.Fatal("expected error")
 			}
 		})

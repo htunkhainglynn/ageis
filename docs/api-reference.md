@@ -84,3 +84,5 @@ to both components through the environment.
   credentials and ignores untrusted forwarding headers.
 - Active threat rules are matched against method plus path/query using Go RE2;
   matching requests are rejected before forwarding.
+- Sanitized outcome events are delivered asynchronously through a bounded
+  queue, keeping Control Plane/database latency off the forwarding hot path.
