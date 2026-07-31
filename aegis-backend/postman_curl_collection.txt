@@ -1,0 +1,171 @@
+BASE_URL=http://127.0.0.1:8000
+ACCESS_TOKEN=<PASTE_ACCESS_TOKEN_HERE>
+REFRESH_TOKEN=<PASTE_REFRESH_TOKEN_HERE>
+USER_ID=<PASTE_USER_ID_HERE>
+API_KEY_ID=<PASTE_API_KEY_ID_HERE>
+RULE_ID=<PASTE_RULE_ID_HERE>
+JWT_CONFIG_ID=<PASTE_JWT_CONFIG_ID_HERE>
+
+# 1) Health Check
+curl --location "$BASE_URL/health"
+
+# 2) Create User
+curl --location "$BASE_URL/api/v1/users" \
+  --header "Content-Type: application/json" \
+  --data-raw '{
+    "email": "user1@example.com",
+    "full_name": "User One",
+    "password": "Passw0rd!"
+  }'
+
+# 3) Login (save access_token + refresh_token from response)
+curl --location "$BASE_URL/api/v1/auth/login" \
+  --header "Content-Type: application/json" \
+  --data-raw '{
+    "email": "user1@example.com",
+    "password": "Passw0rd!"
+  }'
+
+# 4) Refresh Access Token
+curl --location "$BASE_URL/api/v1/auth/refresh" \
+  --header "Content-Type: application/json" \
+  --data-raw '{
+    "refresh_token": "'$REFRESH_TOKEN'"
+  }'
+
+# 5) List Users (auth required)
+curl --location "$BASE_URL/api/v1/users?skip=0&limit=10" \
+  --header "Authorization: Bearer $ACCESS_TOKEN"
+
+# 6) Get User By ID (auth required)
+curl --location "$BASE_URL/api/v1/users/$USER_ID" \
+  --header "Authorization: Bearer $ACCESS_TOKEN"
+
+# 7) Update User (auth required)
+curl --location --request PUT "$BASE_URL/api/v1/users/$USER_ID" \
+  --header "Content-Type: application/json" \
+  --header "Authorization: Bearer $ACCESS_TOKEN" \
+  --data-raw '{
+    "full_name": "Updated User One",
+    "is_active": true
+  }'
+
+# 8) Delete User (auth required)
+curl --location --request DELETE "$BASE_URL/api/v1/users/$USER_ID" \
+  --header "Authorization: Bearer $ACCESS_TOKEN"
+
+# 9) Create API Key (auth required, raw key returns once)
+curl --location "$BASE_URL/api/v1/api-keys" \
+  --header "Content-Type: application/json" \
+  --header "Authorization: Bearer $ACCESS_TOKEN" \
+  --data-raw '{
+    "name": "Primary Integration Key",
+    "scopes": ["users:read", "users:write"],
+    "expires_at": null
+  }'
+
+# 10) List API Keys (auth required)
+curl --location "$BASE_URL/api/v1/api-keys?skip=0&limit=10" \
+  --header "Authorization: Bearer $ACCESS_TOKEN"
+
+# 11) Get API Key Metadata By ID (auth required)
+curl --location "$BASE_URL/api/v1/api-keys/$API_KEY_ID" \
+  --header "Authorization: Bearer $ACCESS_TOKEN"
+
+# 12) Update API Key Metadata (auth required)
+curl --location --request PATCH "$BASE_URL/api/v1/api-keys/$API_KEY_ID" \
+  --header "Content-Type: application/json" \
+  --header "Authorization: Bearer $ACCESS_TOKEN" \
+  --data-raw '{
+    "name": "Updated Integration Key",
+    "scopes": ["users:read"]
+  }'
+
+# 13) Revoke API Key (soft delete, auth required)
+curl --location --request DELETE "$BASE_URL/api/v1/api-keys/$API_KEY_ID" \
+  --header "Authorization: Bearer $ACCESS_TOKEN"
+
+# 14) Create Rate Limit Rule (admin only, auth required)
+curl --location "$BASE_URL/api/v1/rate-limit-rules" \
+  --header "Content-Type: application/json" \
+  --header "Authorization: Bearer $ACCESS_TOKEN" \
+  --data-raw '{
+    "name": "Global default rule",
+    "scope_type": "global",
+    "scope_value": null,
+    "algorithm": "fixed_window",
+    "limit_count": 100,
+    "window_seconds": 60,
+    "burst_allowance": null,
+    "status": "active"
+  }'
+
+# 15) List Rate Limit Rules (auth required, optional filters)
+curl --location "$BASE_URL/api/v1/rate-limit-rules?skip=0&limit=10&scope_type=global&status=active" \
+  --header "Authorization: Bearer $ACCESS_TOKEN"
+
+# 16) Get Rate Limit Rule By ID (auth required)
+curl --location "$BASE_URL/api/v1/rate-limit-rules/$RULE_ID" \
+  --header "Authorization: Bearer $ACCESS_TOKEN"
+
+# 17) Update Rate Limit Rule (admin only, auth required)
+curl --location --request PATCH "$BASE_URL/api/v1/rate-limit-rules/$RULE_ID" \
+  --header "Content-Type: application/json" \
+  --header "Authorization: Bearer $ACCESS_TOKEN" \
+  --data-raw '{
+    "limit_count": 200,
+    "window_seconds": 120
+  }'
+
+# 18) Disable Rate Limit Rule (soft delete, admin only, auth required)
+curl --location --request DELETE "$BASE_URL/api/v1/rate-limit-rules/$RULE_ID" \
+  --header "Authorization: Bearer $ACCESS_TOKEN"
+
+# 19) Create JWT Config (admin only, auth required)
+curl --location "$BASE_URL/api/v1/jwt-configs" \
+  --header "Content-Type: application/json" \
+  --header "Authorization: Bearer $ACCESS_TOKEN" \
+  --data-raw '{
+    "name": "Primary HS256 config",
+    "algorithm": "HS256",
+    "signing_key": "your-secret-signing-key-here",
+    "public_key": null,
+    "issuer": "aegis",
+    "audience": "dashboard",
+    "access_token_ttl_seconds": 900,
+    "refresh_token_ttl_seconds": 604800
+  }'
+
+# 20) List JWT Configs (admin only, auth required)
+curl --location "$BASE_URL/api/v1/jwt-configs?skip=0&limit=10" \
+  --header "Authorization: Bearer $ACCESS_TOKEN"
+
+# 21) Get JWT Config By ID (admin only, auth required)
+curl --location "$BASE_URL/api/v1/jwt-configs/$JWT_CONFIG_ID" \
+  --header "Authorization: Bearer $ACCESS_TOKEN"
+
+# 22) Update JWT Config (admin only, auth required)
+curl --location --request PATCH "$BASE_URL/api/v1/jwt-configs/$JWT_CONFIG_ID" \
+  --header "Content-Type: application/json" \
+  --header "Authorization: Bearer $ACCESS_TOKEN" \
+  --data-raw '{
+    "issuer": "updated-issuer",
+    "audience": "updated-audience",
+    "access_token_ttl_seconds": 1200,
+    "refresh_token_ttl_seconds": 86400
+  }'
+
+# 23) Activate JWT Config (admin only, auth required)
+curl --location --request POST "$BASE_URL/api/v1/jwt-configs/$JWT_CONFIG_ID/activate" \
+  --header "Authorization: Bearer $ACCESS_TOKEN"
+
+# 24) Disable JWT Config (soft delete, admin only, auth required)
+curl --location --request DELETE "$BASE_URL/api/v1/jwt-configs/$JWT_CONFIG_ID" \
+  --header "Authorization: Bearer $ACCESS_TOKEN"
+
+# 25) Logout (invalidate access token)
+curl --location "$BASE_URL/api/v1/auth/logout" \
+  --header "Content-Type: application/json" \
+  --data-raw '{
+    "access_token": "'$ACCESS_TOKEN'"
+  }'

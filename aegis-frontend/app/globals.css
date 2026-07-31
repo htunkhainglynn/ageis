@@ -1,0 +1,102 @@
+@import "tailwindcss";
+
+:root {
+  --background: #f6f7f8;
+  --foreground: #18201c;
+  --card: #ffffff;
+  --muted: #69736d;
+  --border: #dde2df;
+  --primary: #176b50;
+  --primary-dark: #10513c;
+  --danger: #b42318;
+}
+
+@theme inline {
+  --color-background: var(--background);
+  --color-foreground: var(--foreground);
+  --font-sans: var(--font-geist-sans);
+  --font-mono: var(--font-geist-mono);
+}
+
+body {
+  background: var(--background);
+  color: var(--foreground);
+  font-family: var(--font-geist-sans), Arial, sans-serif;
+  margin: 0;
+}
+
+* {
+  box-sizing: border-box;
+}
+
+button, input, select, textarea {
+  font: inherit;
+}
+
+button {
+  cursor: pointer;
+}
+
+button:disabled {
+  cursor: not-allowed;
+  opacity: .55;
+}
+
+:focus-visible {
+  outline: 3px solid rgba(23, 107, 80, .25);
+  outline-offset: 2px;
+}
+
+.card {
+  background: var(--card);
+  border: 1px solid var(--border);
+  border-radius: 16px;
+  box-shadow: 0 1px 2px rgba(16, 24, 20, .04);
+}
+
+.input {
+  width: 100%;
+  border: 1px solid #cfd6d2;
+  border-radius: 9px;
+  padding: 10px 12px;
+  background: white;
+  color: var(--foreground);
+}
+
+.input:focus {
+  border-color: var(--primary);
+  outline: 3px solid rgba(23, 107, 80, .12);
+}
+
+.label {
+  display: grid;
+  gap: 7px;
+  font-size: 13px;
+  font-weight: 600;
+}
+
+.btn {
+  border: 1px solid transparent;
+  border-radius: 9px;
+  padding: 9px 13px;
+  font-weight: 650;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 7px;
+}
+
+.btn-primary {
+  background: var(--primary);
+  color: white;
+}
+
+.btn-primary:hover { background: var(--primary-dark); }
+.btn-secondary { background: white; border-color: var(--border); color: var(--foreground); }
+.btn-danger { background: #fff1f0; border-color: #fecdca; color: var(--danger); }
+.muted { color: var(--muted); }
+.error { color: var(--danger); font-size: 14px; }
+
+@media (max-width: 780px) {
+  .desktop-only { display: none !important; }
+}

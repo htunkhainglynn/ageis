@@ -1,0 +1,27 @@
+Control Plane (Python/FastAPI) — the "brain"
+
+Built so far:
+
+User Management: registration, login/refresh/logout (JWT + Redis session/token revocation), get/update/delete/list users
+API Key Management: generate (bcrypt-hashed, raw key shown once), list/get/update metadata-only, soft-revoke, ownership/admin checks
+
+Still planned (per proposal, not yet built):
+
+Rate limiting rules configuration (define policies, not enforce them — enforcement is Data Plane's job)
+JWT signing/validation configuration (issuing the rules the proxy will check against)
+gRPC server for streaming config to the proxy in real time
+Threat detection pattern definitions (rules config, not the matching itself)
+IP blocking rules (manual + automatic list management)
+Metrics/analytics endpoints (aggregating data from the proxy for the dashboard)
+Security event/request logging endpoints
+Data Plane (Go Reverse Proxy) — the "enforcer"
+
+Status: nothing built yet. Per proposal, planned features:
+
+Reverse proxy core using net/http/httputil
+API key validation logic (checks incoming requests against Control Plane-issued keys)
+Redis-based distributed rate limiter (the actual enforcement, using rules from Control Plane)
+JWT token validation (checks tokens on every proxied request)
+Threat detection pattern matcher (real-time request inspection)
+gRPC client for config synchronization (pulls live rule updates from Control Plane)
+Metrics collection (feeds back to Control Plane/dashboard)
