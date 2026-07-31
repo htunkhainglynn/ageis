@@ -5,6 +5,7 @@ import (
 	"fmt"
 	"net/url"
 	"os"
+	"strconv"
 	"strings"
 	"time"
 )
@@ -19,6 +20,7 @@ const (
 	defaultPolicyTTL       = 30 * time.Second
 	defaultValidationTime  = 2 * time.Second
 	defaultShutdownTimeout = 10 * time.Second
+	defaultRedisAddr       = "localhost:6379"
 )
 
 type Config struct {
@@ -34,6 +36,9 @@ type Config struct {
 	ValidationNegativeTTL    time.Duration
 	PolicyCacheTTL           time.Duration
 	ShutdownTimeout          time.Duration
+	RedisAddr                string
+	RedisPassword            string
+	RedisDB                  int
 }
 
 func Load() (Config, error) {
@@ -70,6 +75,10 @@ func Load() (Config, error) {
 	if err != nil {
 		return Config{}, err
 	}
+	redisDB, err := integerFromEnv("REDIS_DB", 0)
+	if err != nil {
+		return Config{}, err
+	}
 
 	validationPath := envOrDefault("CONTROL_PLANE_VALIDATE_PATH", defaultValidationPath)
 	if !strings.HasPrefix(validationPath, "/") {
@@ -93,6 +102,9 @@ func Load() (Config, error) {
 		ValidationNegativeTTL:    negativeTTL,
 		PolicyCacheTTL:           policyCacheTTL,
 		ShutdownTimeout:          shutdownTimeout,
+		RedisAddr:                envOrDefault("REDIS_ADDR", defaultRedisAddr),
+		RedisPassword:            os.Getenv("REDIS_PASSWORD"),
+		RedisDB:                  redisDB,
 	}, nil
 }
 
@@ -133,6 +145,18 @@ func durationFromEnv(name string, fallback time.Duration) (time.Duration, error)
 	}
 	if value <= 0 {
 		return 0, fmt.Errorf("%s must be greater than zero", name)
+	}
+	return value, nil
+}
+
+func integerFromEnv(name string, fallback int) (int, error) {
+	raw := strings.TrimSpace(os.Getenv(name))
+	if raw == "" {
+		return fallback, nil
+	}
+	value, err := strconv.Atoi(raw)
+	if err != nil || value < 0 {
+		return 0, fmt.Errorf("%s must be a non-negative integer", name)
 	}
 	return value, nil
 }

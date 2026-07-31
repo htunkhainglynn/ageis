@@ -120,6 +120,9 @@ func TestAPIKeyValidationAndForwardingIntegration(t *testing.T) {
 				backendURL,
 				validator,
 				jwtValidatorFunc(func(context.Context, string) error { return nil }),
+				rateLimiterFunc(func(context.Context, *proxycore.KeyInfo, string) (proxycore.RateLimitResult, error) {
+					return proxycore.RateLimitResult{Allowed: true}, nil
+				}),
 				"X-API-Key",
 				time.Second,
 				slog.New(slog.NewTextHandler(io.Discard, nil)),
@@ -164,4 +167,18 @@ type jwtValidatorFunc func(context.Context, string) error
 
 func (f jwtValidatorFunc) ValidateJWT(ctx context.Context, rawToken string) error {
 	return f(ctx, rawToken)
+}
+
+type rateLimiterFunc func(
+	context.Context,
+	*proxycore.KeyInfo,
+	string,
+) (proxycore.RateLimitResult, error)
+
+func (f rateLimiterFunc) Allow(
+	ctx context.Context,
+	keyInfo *proxycore.KeyInfo,
+	path string,
+) (proxycore.RateLimitResult, error) {
+	return f(ctx, keyInfo, path)
 }

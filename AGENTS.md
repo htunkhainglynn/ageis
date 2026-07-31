@@ -57,6 +57,9 @@ Verified on 2026-07-31 against the actual monorepo:
 - Reverse-proxy JWT validation for HS256/RS256/ES256 with algorithm pinning,
   required expiration, optional issuer/audience enforcement, credential
   stripping, and stale-safe Control Plane policy caching.
+- Redis-backed distributed rate limiting with atomic fixed-window,
+  sliding-window, and token-bucket scripts, burst support, standard response
+  headers, and cross-instance counter tests.
 
 Current checkpoint verification:
 
@@ -74,8 +77,6 @@ Current checkpoint verification:
 
 ### Not implemented
 
-- Redis-backed distributed rate limiting in the reverse proxy (the Control
-  Plane policy contract is ready).
 - Manual IP blocking baseline.
 - Threat detection rules/pattern matching.
 - Security-event persistence and analytics APIs/dashboard data.
@@ -105,6 +106,10 @@ Current checkpoint verification:
 - **Authenticated internal contracts:** reverse-proxy REST calls use the
   `X-Aegis-Internal-Token` header with an environment-only shared secret. This
   prevents public use of key-validation and future raw policy-material APIs.
+- **Rate-limit matching:** when multiple active scopes match, the proxy uses
+  the most specific rule (`api_key`, then exact `route`, then `global`).
+  API-key counters are isolated by key ID; route and global scopes represent
+  shared traffic buckets as their names imply.
 
 ## Testing and Checkpoints
 

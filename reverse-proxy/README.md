@@ -66,3 +66,11 @@ Policy is cached locally. If refresh fails after an initial successful fetch,
 the proxy continues enforcing the last known policy. JWT validation supports
 HS256, RS256, and ES256, requires an expiration claim, and enforces issuer and
 audience when configured.
+
+## Distributed rate limiting
+
+Active `fixed_window`, `sliding_window`, and `token_bucket` rules are enforced
+with atomic Redis scripts. Matching precedence is API-key rule, then exact
+route rule, then global rule. Rejected requests receive HTTP 429,
+`Retry-After`, `X-RateLimit-Limit`, and `X-RateLimit-Remaining`. The proxy
+fails closed with HTTP 503 if Redis enforcement is unavailable.

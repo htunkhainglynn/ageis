@@ -6,9 +6,11 @@ import (
 	"errors"
 	"fmt"
 	"log/slog"
+	"math"
 	"net/http"
 	"net/http/httputil"
 	"net/url"
+	"strconv"
 	"strings"
 	"time"
 )
@@ -34,6 +36,7 @@ type Handler struct {
 	forwarder         *httputil.ReverseProxy
 	validator         KeyValidator
 	jwtValidator      JWTValidator
+	rateLimiter       RateLimiter
 	apiKeyHeader      string
 	validationTimeout time.Duration
 }
@@ -48,6 +51,7 @@ func NewHandler(
 	backendURL *url.URL,
 	validator KeyValidator,
 	jwtValidator JWTValidator,
+	rateLimiter RateLimiter,
 	apiKeyHeader string,
 	validationTimeout time.Duration,
 	logger *slog.Logger,
@@ -60,6 +64,9 @@ func NewHandler(
 	}
 	if jwtValidator == nil {
 		return nil, errors.New("JWT validator is required")
+	}
+	if rateLimiter == nil {
+		return nil, errors.New("rate limiter is required")
 	}
 	if strings.TrimSpace(apiKeyHeader) == "" {
 		return nil, errors.New("API key header is required")
@@ -81,6 +88,7 @@ func NewHandler(
 		forwarder:         forwarder,
 		validator:         validator,
 		jwtValidator:      jwtValidator,
+		rateLimiter:       rateLimiter,
 		apiKeyHeader:      apiKeyHeader,
 		validationTimeout: validationTimeout,
 	}, nil
@@ -96,7 +104,7 @@ func (h *Handler) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 	ctx, cancel := context.WithTimeout(r.Context(), h.validationTimeout)
 	defer cancel()
 
-	_, err := h.validator.ValidateKey(ctx, key)
+	keyInfo, err := h.validator.ValidateKey(ctx, key)
 	if err != nil {
 		switch {
 		case errors.Is(err, ErrKeyNotFound):
@@ -131,6 +139,25 @@ func (h *Handler) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 		default:
 			writeError(w, http.StatusBadGateway, "CONTROL_PLANE_UNAVAILABLE", "JWT validation policy is temporarily unavailable.")
 		}
+		return
+	}
+
+	rateLimitResult, err := h.rateLimiter.Allow(ctx, keyInfo, r.URL.Path)
+	if err != nil {
+		writeError(w, http.StatusServiceUnavailable, "RATE_LIMIT_UNAVAILABLE", "Rate limiting is temporarily unavailable.")
+		return
+	}
+	if rateLimitResult.Limit > 0 {
+		w.Header().Set("X-RateLimit-Limit", strconv.FormatInt(rateLimitResult.Limit, 10))
+		w.Header().Set("X-RateLimit-Remaining", strconv.FormatInt(rateLimitResult.Remaining, 10))
+	}
+	if !rateLimitResult.Allowed {
+		retrySeconds := int64(math.Ceil(rateLimitResult.RetryAfter.Seconds()))
+		if retrySeconds < 1 {
+			retrySeconds = 1
+		}
+		w.Header().Set("Retry-After", strconv.FormatInt(retrySeconds, 10))
+		writeError(w, http.StatusTooManyRequests, "RATE_LIMIT_EXCEEDED", "Rate limit exceeded.")
 		return
 	}
 

@@ -48,6 +48,16 @@ func TestLoad(t *testing.T) {
 			wantErr: "parsing VALIDATION_TIMEOUT",
 		},
 		{
+			name: "invalid Redis database",
+			env: map[string]string{
+				"BACKEND_URL":        "http://localhost:9000",
+				"CONTROL_PLANE_URL":  "http://localhost:8000",
+				"INTERNAL_API_TOKEN": "test-internal-token",
+				"REDIS_DB":           "-1",
+			},
+			wantErr: "REDIS_DB must be a non-negative integer",
+		},
+		{
 			name: "missing internal token",
 			env: map[string]string{
 				"BACKEND_URL":       "http://localhost:9000",
@@ -63,6 +73,7 @@ func TestLoad(t *testing.T) {
 				"BACKEND_URL", "CONTROL_PLANE_URL", "CONTROL_PLANE_VALIDATE_PATH",
 				"INTERNAL_API_TOKEN",
 				"CONTROL_PLANE_POLICY_PATH", "POLICY_CACHE_TTL",
+				"REDIS_ADDR", "REDIS_PASSWORD", "REDIS_DB",
 				"VALIDATION_TIMEOUT", "VALIDATION_CACHE_TTL",
 				"VALIDATION_NEGATIVE_CACHE_TTL", "SHUTDOWN_TIMEOUT",
 			} {

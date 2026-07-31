@@ -14,6 +14,7 @@ import (
 	"github.com/htunkhainglynn/aegis/reverse-proxy/internal/controlplane"
 	"github.com/htunkhainglynn/aegis/reverse-proxy/internal/middleware"
 	proxycore "github.com/htunkhainglynn/aegis/reverse-proxy/internal/proxy"
+	"github.com/redis/go-redis/v9"
 )
 
 func main() {
@@ -74,10 +75,33 @@ func main() {
 		logger.Error("creating JWT validator failed", "error", err)
 		os.Exit(1)
 	}
+	redisClient := redis.NewClient(&redis.Options{
+		Addr:     cfg.RedisAddr,
+		Password: cfg.RedisPassword,
+		DB:       cfg.RedisDB,
+	})
+	defer func() {
+		if err := redisClient.Close(); err != nil {
+			logger.Error("closing Redis client failed", "error", err)
+		}
+	}()
+	redisCtx, redisCancel := context.WithTimeout(context.Background(), cfg.ValidationTimeout)
+	if err := redisClient.Ping(redisCtx).Err(); err != nil {
+		redisCancel()
+		logger.Error("connecting to Redis failed", "error", err)
+		os.Exit(1)
+	}
+	redisCancel()
+	rateLimiter, err := proxycore.NewRedisRateLimiter(redisClient, policyProvider)
+	if err != nil {
+		logger.Error("creating Redis rate limiter failed", "error", err)
+		os.Exit(1)
+	}
 	proxyHandler, err := proxycore.NewHandler(
 		cfg.BackendURL,
 		validator,
 		jwtValidator,
+		rateLimiter,
 		cfg.APIKeyHeader,
 		cfg.ValidationTimeout,
 		logger,
