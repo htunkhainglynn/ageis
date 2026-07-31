@@ -1,7 +1,7 @@
 from sqlalchemy import and_, func, select
 from sqlalchemy.ext.asyncio import AsyncSession
 
-from app.models.rate_limit_rule import RateLimitRule
+from app.models.rate_limit_rule import RateLimitRule, RateLimitRuleStatus
 from app.repositories.base import BaseRepository
 from app.schemas.rate_limit_rule import RateLimitRuleCreateInDB, RateLimitRuleUpdateInDB
 
@@ -89,3 +89,12 @@ class RateLimitRuleRepository(
 
         result = await self.db.execute(query)
         return result.scalar_one_or_none()
+
+    async def list_active_rules(self) -> list[RateLimitRule]:
+        """Return all active rules for reverse-proxy policy enforcement."""
+        result = await self.db.execute(
+            select(RateLimitRule)
+            .where(RateLimitRule.status == RateLimitRuleStatus.ACTIVE.value)
+            .order_by(RateLimitRule.id.asc())
+        )
+        return list(result.scalars().all())

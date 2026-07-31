@@ -33,7 +33,10 @@ Alembic migrations in the repo — this file is a map/summary, not canonical.
 - status (active | disabled), created_by
 - Constraint: only ONE active config system-wide; activating a new one
   deactivates the previous one in the same transaction
-- API responses NEVER return raw signing_key/public_key — masked value only
+- Operator-facing API responses NEVER return raw signing_key/public_key —
+  masked values only. The authenticated internal proxy contract returns the
+  minimum verification key required for enforcement; asymmetric private keys
+  are never returned.
 
 ### ThreatRule (planned, not yet built)
 - id, pattern, severity, status, created_by
@@ -55,4 +58,3 @@ Alembic migrations in the repo — this file is a map/summary, not canonical.
 - Soft delete everywhere (status flag), never hard delete — proxy caches may
   reference a row mid-sync
 - Ownership checks on every APIKey read/write (owner or Admin only)
-

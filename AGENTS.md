@@ -46,6 +46,8 @@ Verified on 2026-07-31 against the actual monorepo:
   authenticated reads, and Admin-only writes.
 - JWT configuration CRUD, Fernet-encrypted signing keys, masked responses,
   one-active-config behavior, and Admin-only access.
+- Authenticated internal policy snapshot returning only active JWT validation
+  material and active rate-limit rules for the reverse proxy.
 - Dashboard login and configuration pages for users, API keys, rate limits,
   JWT configuration, system health, and an analytics placeholder. Navigation
   and route visibility follow the role matrix.
@@ -55,7 +57,7 @@ Verified on 2026-07-31 against the actual monorepo:
 
 Current checkpoint verification:
 
-- Control Plane: 28 pytest tests pass, none skipped; the role migration applies
+- Control Plane: 31 pytest tests pass, none skipped; the role migration applies
   successfully to PostgreSQL.
 - Dashboard: lint, production build, and 3 Node tests pass, none skipped.
 - Reverse proxy baseline: `go test -race ./...` and `go vet ./...` pass.
@@ -69,8 +71,9 @@ Current checkpoint verification:
 
 ### Not implemented
 
-- Reverse-proxy JWT validation.
-- Redis-backed distributed rate limiting in the reverse proxy.
+- Reverse-proxy JWT validation (the Control Plane policy contract is ready).
+- Redis-backed distributed rate limiting in the reverse proxy (the Control
+  Plane policy contract is ready).
 - Manual IP blocking baseline.
 - Threat detection rules/pattern matching.
 - Security-event persistence and analytics APIs/dashboard data.

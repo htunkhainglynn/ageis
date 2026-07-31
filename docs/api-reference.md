@@ -48,9 +48,11 @@ to both components through the environment.
 
 - `POST /api-keys/validate` — verifies a presented raw key against prefix
   candidates and bcrypt hashes; returns only enforcement metadata
+- `GET /internal/proxy-config` — returns the active JWT verification policy and
+  active rate-limit rules. HS256 requires decrypted shared verification
+  material; RS256/ES256 return only the public verification key.
 
 ## Not yet built
-- Internal JWT/rate-limit policy snapshot endpoints
 - Threat detection rule config endpoints
 - IP blocking rule endpoints
 - Metrics/analytics endpoints

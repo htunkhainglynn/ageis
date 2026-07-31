@@ -1,6 +1,4 @@
-from cryptography.fernet import Fernet, InvalidToken
-
-from app.core.config import settings
+from app.core.encryption import decrypt_jwt_signing_key, encrypt_jwt_signing_key
 from app.core.exceptions import (
     BadRequestException,
     ForbiddenException,
@@ -63,36 +61,13 @@ class JWTConfigService:
                 message="You are not allowed to manage JWT configurations.",
             )
 
-    def _build_fernet(self) -> Fernet:
-        """Build Fernet cipher from environment-backed key material."""
-        encryption_key = settings.JWT_CONFIG_ENCRYPTION_KEY.strip()
-        if encryption_key == "":
-            raise BadRequestException(
-                error_code="JWT_CONFIG_ENCRYPTION_KEY_MISSING",
-                message="JWT config encryption key is not configured.",
-            )
-
-        try:
-            return Fernet(encryption_key.encode())
-        except ValueError as exc:
-            raise BadRequestException(
-                error_code="JWT_CONFIG_ENCRYPTION_KEY_INVALID",
-                message="JWT config encryption key is invalid.",
-            ) from exc
-
     def _encrypt_signing_key(self, signing_key: str) -> str:
         """Encrypt a signing key before database persistence."""
-        return self._build_fernet().encrypt(signing_key.encode()).decode()
+        return encrypt_jwt_signing_key(signing_key)
 
     def _decrypt_signing_key(self, encrypted_signing_key: str) -> str:
         """Decrypt persisted signing key for masked display."""
-        try:
-            return self._build_fernet().decrypt(encrypted_signing_key.encode()).decode()
-        except InvalidToken as exc:
-            raise BadRequestException(
-                error_code="JWT_CONFIG_SIGNING_KEY_DECRYPT_FAILED",
-                message="Unable to decrypt stored signing key.",
-            ) from exc
+        return decrypt_jwt_signing_key(encrypted_signing_key)
 
     @staticmethod
     def _mask_secret(raw_value: str) -> str:

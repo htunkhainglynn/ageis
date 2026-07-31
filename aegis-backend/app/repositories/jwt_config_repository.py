@@ -35,6 +35,13 @@ class JWTConfigRepository(BaseRepository[JWTConfig, JWTConfigCreateInDB, JWTConf
         result = await self.db.execute(select(func.count(JWTConfig.id)))
         return int(result.scalar_one())
 
+    async def get_active_config(self) -> JWTConfig | None:
+        """Return the single active JWT validation configuration."""
+        result = await self.db.execute(
+            select(JWTConfig).where(JWTConfig.status == JWTConfigStatus.ACTIVE.value)
+        )
+        return result.scalar_one_or_none()
+
     async def update_config(self, jwt_config: JWTConfig, payload: JWTConfigUpdateInDB) -> JWTConfig:
         """Update mutable fields on an existing JWT config."""
         update_data = payload.model_dump(exclude_unset=True)
