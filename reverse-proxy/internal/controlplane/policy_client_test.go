@@ -27,7 +27,8 @@ func TestPolicyClientGetPolicy(t *testing.T) {
 				"generated_at":"2026-07-31T00:00:00Z",
 				"jwt":{"id":1,"algorithm":"HS256","verification_key":"secret","issuer":"aegis","audience":"api"},
 				"rate_limit_rules":[{"id":2,"scope_type":"global","scope_value":null,"algorithm":"fixed_window","limit_count":10,"window_seconds":60,"burst_allowance":null}],
-				"blocked_ip_addresses":["203.0.113.8"]
+				"blocked_ip_addresses":["203.0.113.8"],
+				"threat_rules":[{"id":3,"name":"Traversal","pattern":"%2e%2e","severity":"high"}]
 			}}`,
 		},
 		{
@@ -98,6 +99,9 @@ func TestPolicyClientGetPolicy(t *testing.T) {
 			}
 			if len(snapshot.BlockedIPAddresses) != 1 || snapshot.BlockedIPAddresses[0] != "203.0.113.8" {
 				t.Fatalf("blocked IP addresses = %#v", snapshot.BlockedIPAddresses)
+			}
+			if len(snapshot.ThreatRules) != 1 || snapshot.ThreatRules[0].ID != 3 {
+				t.Fatalf("threat rules = %#v", snapshot.ThreatRules)
 			}
 		})
 	}

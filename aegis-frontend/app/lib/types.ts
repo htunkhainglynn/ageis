@@ -64,3 +64,14 @@ export type IPBlock = {
   created_at: string;
   updated_at: string;
 };
+
+export type ThreatRule = {
+  id: number;
+  name: string;
+  pattern: string;
+  severity: "low" | "medium" | "high" | "critical";
+  status: "active" | "disabled";
+  created_by: number;
+  created_at: string;
+  updated_at: string;
+};

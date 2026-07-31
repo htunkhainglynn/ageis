@@ -80,6 +80,21 @@ async def test_proxy_snapshot_returns_active_jwt_and_rate_limit_policies(
     )
     assert active_block.status_code == status.HTTP_201_CREATED
     assert disabled_block.status_code == status.HTTP_201_CREATED
+    active_threat = await client.post(
+        "/api/v1/threat-rules",
+        json={"name": "Traversal", "pattern": r"\.\./", "severity": "high"},
+    )
+    disabled_threat = await client.post(
+        "/api/v1/threat-rules",
+        json={
+            "name": "Disabled scanner",
+            "pattern": "scanner",
+            "severity": "low",
+            "status": "disabled",
+        },
+    )
+    assert active_threat.status_code == status.HTTP_201_CREATED
+    assert disabled_threat.status_code == status.HTTP_201_CREATED
 
     response = await client.get(
         "/api/v1/internal/proxy-config",
@@ -99,6 +114,12 @@ async def test_proxy_snapshot_returns_active_jwt_and_rate_limit_policies(
     assert data["rate_limit_rules"][0]["id"] == active_rule.json()["data"]["id"]
     assert data["rate_limit_rules"][0]["scope_type"] == "global"
     assert data["blocked_ip_addresses"] == ["203.0.113.44"]
+    assert data["threat_rules"] == [{
+        "id": active_threat.json()["data"]["id"],
+        "name": "Traversal",
+        "pattern": r"\.\./",
+        "severity": "high",
+    }]
 
 
 async def test_proxy_snapshot_uses_public_key_for_asymmetric_jwt(

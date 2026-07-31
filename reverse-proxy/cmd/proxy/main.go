@@ -102,12 +102,18 @@ func main() {
 		logger.Error("creating IP blocker failed", "error", err)
 		os.Exit(1)
 	}
+	threatDetector, err := proxycore.NewPolicyThreatDetector(policyProvider)
+	if err != nil {
+		logger.Error("creating threat detector failed", "error", err)
+		os.Exit(1)
+	}
 	proxyHandler, err := proxycore.NewHandler(
 		cfg.BackendURL,
 		validator,
 		jwtValidator,
 		rateLimiter,
 		ipBlocker,
+		threatDetector,
 		cfg.APIKeyHeader,
 		cfg.ValidationTimeout,
 		logger,

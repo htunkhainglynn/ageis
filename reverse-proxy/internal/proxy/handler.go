@@ -38,6 +38,7 @@ type Handler struct {
 	jwtValidator      JWTValidator
 	rateLimiter       RateLimiter
 	ipBlocker         IPBlocker
+	threatDetector    ThreatDetector
 	apiKeyHeader      string
 	validationTimeout time.Duration
 }
@@ -54,6 +55,7 @@ func NewHandler(
 	jwtValidator JWTValidator,
 	rateLimiter RateLimiter,
 	ipBlocker IPBlocker,
+	threatDetector ThreatDetector,
 	apiKeyHeader string,
 	validationTimeout time.Duration,
 	logger *slog.Logger,
@@ -72,6 +74,9 @@ func NewHandler(
 	}
 	if ipBlocker == nil {
 		return nil, errors.New("IP blocker is required")
+	}
+	if threatDetector == nil {
+		return nil, errors.New("threat detector is required")
 	}
 	if strings.TrimSpace(apiKeyHeader) == "" {
 		return nil, errors.New("API key header is required")
@@ -95,6 +100,7 @@ func NewHandler(
 		jwtValidator:      jwtValidator,
 		rateLimiter:       rateLimiter,
 		ipBlocker:         ipBlocker,
+		threatDetector:    threatDetector,
 		apiKeyHeader:      apiKeyHeader,
 		validationTimeout: validationTimeout,
 	}, nil
@@ -115,6 +121,16 @@ func (h *Handler) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 	}
 	if blocked {
 		writeError(w, http.StatusForbidden, "IP_BLOCKED", "Requests from this IP address are blocked.")
+		return
+	}
+
+	threat, err := h.threatDetector.Detect(ctx, r)
+	if err != nil {
+		writeError(w, http.StatusServiceUnavailable, "THREAT_POLICY_UNAVAILABLE", "Threat policy is temporarily unavailable.")
+		return
+	}
+	if threat != nil {
+		writeError(w, http.StatusForbidden, "THREAT_DETECTED", "The request matched a security rule.")
 		return
 	}
 

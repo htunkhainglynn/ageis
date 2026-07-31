@@ -30,6 +30,7 @@ func TestCachedPolicyProviderCachesAndClones(t *testing.T) {
 				{ID: 2, ScopeType: "global"},
 			},
 			BlockedIPAddresses: []string{"203.0.113.8"},
+			ThreatRules:        []proxycore.ThreatPolicy{{ID: 3, Pattern: "attack"}},
 		},
 	}
 	cache, err := NewCachedPolicyProvider(source, time.Minute)
@@ -44,6 +45,7 @@ func TestCachedPolicyProviderCachesAndClones(t *testing.T) {
 	first.JWT.Algorithm = "changed"
 	first.RateLimitRules[0].ScopeType = "changed"
 	first.BlockedIPAddresses[0] = "198.51.100.9"
+	first.ThreatRules[0].Pattern = "changed"
 
 	second, err := cache.GetPolicy(context.Background())
 	if err != nil {
@@ -54,6 +56,9 @@ func TestCachedPolicyProviderCachesAndClones(t *testing.T) {
 	}
 	if second.BlockedIPAddresses[0] != "203.0.113.8" {
 		t.Fatal("callers mutated cached blocked IP addresses")
+	}
+	if second.ThreatRules[0].Pattern != "attack" {
+		t.Fatal("callers mutated cached threat rules")
 	}
 	if source.calls.Load() != 1 {
 		t.Fatalf("source calls = %d, want 1", source.calls.Load())

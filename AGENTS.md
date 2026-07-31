@@ -50,6 +50,9 @@ Verified on 2026-07-31 against the actual monorepo:
   one-active-block-per-address behavior, soft deletion, Admin-only Control
   Plane access, an Admin-only dashboard page, active-policy distribution, and
   proxy-edge enforcement before credential validation.
+- Admin-only threat-rule CRUD/dashboard, RE2-compatible pattern validation,
+  active-rule policy distribution, and fail-closed proxy matching against the
+  HTTP method plus request path/query before forwarding.
 - Authenticated internal policy snapshot returning only active JWT validation
   material and active rate-limit rules for the reverse proxy.
 - Dashboard login and configuration pages for users, API keys, rate limits,
@@ -71,9 +74,9 @@ Verified on 2026-07-31 against the actual monorepo:
 
 Current checkpoint verification:
 
-- Control Plane: 36 pytest tests pass, none skipped; all migrations apply
+- Control Plane: 38 pytest tests pass, none skipped; all migrations apply
   successfully to PostgreSQL.
-- Dashboard: lint, production build, and 4 Node tests pass, none skipped.
+- Dashboard: lint, production build, and 5 Node tests pass, none skipped.
 - Reverse proxy baseline: `go test -race ./...` and `go vet ./...` pass.
 - Full stack: the isolated `scripts/e2e.sh` test passes against fresh
   PostgreSQL and Redis volumes and real component containers, including
@@ -81,7 +84,6 @@ Current checkpoint verification:
 
 ### Not implemented
 
-- Threat detection rules/pattern matching.
 - Security-event persistence and analytics APIs/dashboard data.
 - Control Plane-to-proxy gRPC configuration sync.
 - Automatic IP blocking.
@@ -129,6 +131,10 @@ Current checkpoint verification:
   caller from evading a block by spoofing a forwarding header. Deployments
   behind another trusted load balancer can add an explicit trusted-proxy model
   later instead of trusting forwarded headers globally.
+- **Threat matching surface:** active rules use Go RE2-compatible regular
+  expressions over `METHOD path?query`. Bodies and arbitrary headers are not
+  inspected, keeping streaming requests intact and avoiding accidental secret
+  capture; RE2 provides linear-time matching without backtracking attacks.
 
 ## Testing and Checkpoints
 

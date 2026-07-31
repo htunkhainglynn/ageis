@@ -31,6 +31,13 @@ class ProxyRateLimitPolicy(BaseModel):
     burst_allowance: int | None
 
 
+class ProxyThreatPolicy(BaseModel):
+    id: int
+    name: str
+    pattern: str
+    severity: str
+
+
 class ProxyPolicySnapshot(BaseModel):
     """Atomic REST policy snapshot used until gRPC synchronization is added."""
 
@@ -38,3 +45,4 @@ class ProxyPolicySnapshot(BaseModel):
     jwt: ProxyJWTValidationPolicy | None
     rate_limit_rules: list[ProxyRateLimitPolicy]
     blocked_ip_addresses: list[str]
+    threat_rules: list[ProxyThreatPolicy]

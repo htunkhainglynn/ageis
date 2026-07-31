@@ -38,8 +38,11 @@ Alembic migrations in the repo — this file is a map/summary, not canonical.
   minimum verification key required for enforcement; asymmetric private keys
   are never returned.
 
-### ThreatRule (planned, not yet built)
-- id, pattern, severity, status, created_by
+### ThreatRule
+- id, name, RE2-compatible pattern
+- severity (low | medium | high | critical), status (active | disabled),
+  created_by
+- Active patterns match the proxy's HTTP method plus request path/query
 
 ### IPBlock
 - id, ip_address (canonical exact IPv4 or IPv6 address), reason

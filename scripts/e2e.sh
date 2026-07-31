@@ -150,6 +150,13 @@ activate_code=$(request "$TMP_DIR/activate.json" \
   "$CONTROL_URL/api/v1/jwt-configs/$JWT_CONFIG_ID/activate")
 [ "$activate_code" = "200" ] || fail "JWT activation returned HTTP $activate_code"
 
+threat_code=$(request "$TMP_DIR/threat-rule.json" \
+  -H "Authorization: Bearer $ACCESS_TOKEN" \
+  -H "Content-Type: application/json" \
+  -d '{"name":"E2E traversal","pattern":"e2e-threat","severity":"high","status":"active"}' \
+  "$CONTROL_URL/api/v1/threat-rules")
+[ "$threat_code" = "201" ] || fail "Threat-rule creation returned HTTP $threat_code"
+
 CLIENT_JWT=$(compose exec -T \
   -e E2E_JWT_SIGNING_KEY="$E2E_JWT_SIGNING_KEY" \
   control-plane \
@@ -209,6 +216,16 @@ unblock_code=$(request "$TMP_DIR/unblock.json" \
   "$CONTROL_URL/api/v1/ip-blocks/$IP_BLOCK_ID")
 [ "$unblock_code" = "200" ] || fail "IP-block disable returned HTTP $unblock_code"
 
+sleep 2
+
+threat_match_code=$(request "$TMP_DIR/threat-match.json" \
+  -H "X-API-Key: $RAW_API_KEY" \
+  -H "Authorization: Bearer $CLIENT_JWT" \
+  "$PROXY_URL/e2e-threat")
+[ "$threat_match_code" = "403" ] || fail "Threat-matching request returned HTTP $threat_match_code"
+jq -e '.errorCode == "THREAT_DETECTED"' "$TMP_DIR/threat-match.json" >/dev/null ||
+  fail "Threat detection error contract is incorrect"
+
 rate_code=$(request "$TMP_DIR/rate.json" \
   -H "Authorization: Bearer $ACCESS_TOKEN" \
   -H "Content-Type: application/json" \
@@ -255,4 +272,4 @@ third_code=$(request "$TMP_DIR/third.json" \
 jq -e '.errorCode == "RATE_LIMIT_EXCEEDED"' "$TMP_DIR/third.json" >/dev/null ||
   fail "Rate-limit error contract is incorrect"
 
-echo "E2E passed: Control Plane -> reverse proxy -> upstream, including auth, IP blocking, and Redis rate limiting."
+echo "E2E passed: Control Plane -> reverse proxy -> upstream, including auth, threat/IP blocking, and Redis rate limiting."

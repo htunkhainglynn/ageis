@@ -48,6 +48,13 @@ Base path: `/api/v1/`. Keep this synchronized with the generated OpenAPI schema.
 - `PATCH /ip-blocks/{id}` — update reason/status; address and source immutable
 - `DELETE /ip-blocks/{id}` — soft delete (status=disabled)
 
+### Threat Rules (Admin)
+- `POST /threat-rules` — create an RE2-compatible request-target pattern
+- `GET /threat-rules?skip&limit&status`
+- `GET /threat-rules/{id}`
+- `PATCH /threat-rules/{id}`
+- `DELETE /threat-rules/{id}` — soft delete (status=disabled)
+
 ### Internal Reverse-Proxy Contract
 
 All internal routes require `X-Aegis-Internal-Token`, whose value is supplied
@@ -55,12 +62,11 @@ to both components through the environment.
 
 - `POST /api-keys/validate` — verifies a presented raw key against prefix
   candidates and bcrypt hashes; returns only enforcement metadata
-- `GET /internal/proxy-config` — returns the active JWT verification policy and
-  active rate-limit rules and IP addresses. HS256 requires decrypted shared
-  verification material; RS256/ES256 return only the public verification key.
+- `GET /internal/proxy-config` — returns active JWT verification, rate-limit,
+  IP-block, and threat-rule policy. HS256 requires decrypted shared verification
+  material; RS256/ES256 return only the public verification key.
 
 ## Not yet built
-- Threat detection rule config endpoints
 - Metrics/analytics endpoints
 - gRPC server (Control Plane -> Proxy config streaming)
 
@@ -71,4 +77,5 @@ to both components through the environment.
   test.
 - Exact-address IP blocking evaluates the direct network peer before
   credentials and ignores untrusted forwarding headers.
-- Threat detection is not yet implemented.
+- Active threat rules are matched against method plus path/query using Go RE2;
+  matching requests are rejected before forwarding.

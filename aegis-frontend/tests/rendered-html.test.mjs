@@ -47,6 +47,7 @@ test("role-gated navigation matches the permission matrix", async () => {
   assert.ok(shell.includes('{ href: "/api-keys", label: "API keys", roles: ["admin", "api_consumer"]'));
   assert.ok(shell.includes('{ href: "/rate-limits", label: "Rate limits", roles: ["admin"]'));
   assert.ok(shell.includes('{ href: "/ip-blocks", label: "IP blocks", roles: ["admin"]'));
+  assert.ok(shell.includes('{ href: "/threat-rules", label: "Threat rules", roles: ["admin"]'));
   assert.ok(shell.includes('{ href: "/jwt-config", label: "JWT configuration", roles: ["admin"]'));
   assert.match(shell, /filter\(\(item\) => !item\.roles/);
   assert.match(shell, /roles\.includes\(user\.role\)/);
@@ -74,4 +75,14 @@ test("IP block management remains Admin-only in the dashboard", async () => {
   assert.match(page, /apiRequest<IPBlockList>\("\/ip-blocks\?/);
   assert.match(page, /method: "DELETE"/);
   assert.match(page, /exact IPv4 or IPv6 address/i);
+});
+
+test("threat rule management remains Admin-only in the dashboard", async () => {
+  const page = await readFile(
+    new URL("../app/threat-rules/page.tsx", import.meta.url),
+    "utf8",
+  );
+  assert.match(page, /<ProtectedPage roles=\{\["admin"\]\}>/);
+  assert.match(page, /apiRequest<RuleList>\("\/threat-rules\?/);
+  assert.match(page, /RE2-compatible patterns/i);
 });

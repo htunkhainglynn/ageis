@@ -23,11 +23,19 @@ type RateLimitPolicy struct {
 	BurstAllowance *int64 `json:"burst_allowance"`
 }
 
+type ThreatPolicy struct {
+	ID       int64  `json:"id"`
+	Name     string `json:"name"`
+	Pattern  string `json:"pattern"`
+	Severity string `json:"severity"`
+}
+
 type PolicySnapshot struct {
 	GeneratedAt        time.Time         `json:"generated_at"`
 	JWT                *JWTPolicy        `json:"jwt"`
 	RateLimitRules     []RateLimitPolicy `json:"rate_limit_rules"`
 	BlockedIPAddresses []string          `json:"blocked_ip_addresses"`
+	ThreatRules        []ThreatPolicy    `json:"threat_rules"`
 }
 
 type PolicyProvider interface {

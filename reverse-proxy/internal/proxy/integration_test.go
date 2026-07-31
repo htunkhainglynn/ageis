@@ -126,6 +126,9 @@ func TestAPIKeyValidationAndForwardingIntegration(t *testing.T) {
 				ipBlockerFunc(func(context.Context, string) (bool, error) {
 					return false, nil
 				}),
+				threatDetectorFunc(func(context.Context, *http.Request) (*proxycore.ThreatMatch, error) {
+					return nil, nil
+				}),
 				"X-API-Key",
 				time.Second,
 				slog.New(slog.NewTextHandler(io.Discard, nil)),
@@ -190,4 +193,13 @@ type ipBlockerFunc func(context.Context, string) (bool, error)
 
 func (f ipBlockerFunc) IsBlocked(ctx context.Context, remoteAddr string) (bool, error) {
 	return f(ctx, remoteAddr)
+}
+
+type threatDetectorFunc func(context.Context, *http.Request) (*proxycore.ThreatMatch, error)
+
+func (f threatDetectorFunc) Detect(
+	ctx context.Context,
+	request *http.Request,
+) (*proxycore.ThreatMatch, error) {
+	return f(ctx, request)
 }

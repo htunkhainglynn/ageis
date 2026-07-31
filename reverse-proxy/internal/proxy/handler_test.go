@@ -37,6 +37,20 @@ type fakeIPBlocker struct {
 	calls   atomic.Int32
 }
 
+type fakeThreatDetector struct {
+	match *ThreatMatch
+	err   error
+	calls atomic.Int32
+}
+
+func (f *fakeThreatDetector) Detect(
+	_ context.Context,
+	_ *http.Request,
+) (*ThreatMatch, error) {
+	f.calls.Add(1)
+	return f.match, f.err
+}
+
 func (f *fakeIPBlocker) IsBlocked(_ context.Context, _ string) (bool, error) {
 	f.calls.Add(1)
 	return f.blocked, f.err
@@ -74,12 +88,16 @@ func TestHandler(t *testing.T) {
 		rateLimitError   error
 		ipBlocked        bool
 		ipBlockError     error
+		threatMatch      bool
+		threatError      error
 		wantStatus       int
 		wantErrorCode    string
 		wantBackendCalls int32
 	}{
 		{name: "blocked IP", ipBlocked: true, wantStatus: http.StatusForbidden, wantErrorCode: "IP_BLOCKED"},
 		{name: "IP policy unavailable", ipBlockError: ErrPolicyUnavailable, wantStatus: http.StatusServiceUnavailable, wantErrorCode: "IP_BLOCK_POLICY_UNAVAILABLE"},
+		{name: "threat detected", threatMatch: true, wantStatus: http.StatusForbidden, wantErrorCode: "THREAT_DETECTED"},
+		{name: "threat policy unavailable", threatError: ErrPolicyUnavailable, wantStatus: http.StatusServiceUnavailable, wantErrorCode: "THREAT_POLICY_UNAVAILABLE"},
 		{name: "missing key", wantStatus: http.StatusUnauthorized, wantErrorCode: "API_KEY_MISSING"},
 		{name: "unknown key", apiKey: "ak_unknown", validationErr: ErrKeyNotFound, wantStatus: http.StatusUnauthorized, wantErrorCode: "API_KEY_INVALID"},
 		{name: "revoked key", apiKey: "ak_revoked", validationErr: ErrKeyRevoked, wantStatus: http.StatusForbidden, wantErrorCode: "API_KEY_REVOKED"},
@@ -125,12 +143,17 @@ func TestHandler(t *testing.T) {
 			jwtValidator := &fakeJWTValidator{err: tt.jwtError}
 			rateLimiter := &fakeRateLimiter{result: tt.rateLimitResult, err: tt.rateLimitError}
 			ipBlocker := &fakeIPBlocker{blocked: tt.ipBlocked, err: tt.ipBlockError}
+			threatDetector := &fakeThreatDetector{err: tt.threatError}
+			if tt.threatMatch {
+				threatDetector.match = &ThreatMatch{RuleID: 1, Severity: "high"}
+			}
 			handler, err := NewHandler(
 				backendURL,
 				validator,
 				jwtValidator,
 				rateLimiter,
 				ipBlocker,
+				threatDetector,
 				"X-API-Key",
 				time.Second,
 				slog.New(slog.NewTextHandler(io.Discard, nil)),
@@ -187,6 +210,7 @@ func TestHandlerRespectsValidationTimeout(t *testing.T) {
 		&fakeJWTValidator{},
 		&fakeRateLimiter{result: RateLimitResult{Allowed: true}},
 		&fakeIPBlocker{},
+		&fakeThreatDetector{},
 		"X-API-Key",
 		10*time.Millisecond,
 		slog.New(slog.NewTextHandler(io.Discard, nil)),
@@ -219,6 +243,7 @@ func TestNewHandlerValidation(t *testing.T) {
 	jwtValidator := &fakeJWTValidator{}
 	rateLimiter := &fakeRateLimiter{}
 	ipBlocker := &fakeIPBlocker{}
+	threatDetector := &fakeThreatDetector{}
 
 	tests := []struct {
 		name      string
@@ -227,25 +252,27 @@ func TestNewHandlerValidation(t *testing.T) {
 		jwt       JWTValidator
 		limiter   RateLimiter
 		blocker   IPBlocker
+		detector  ThreatDetector
 		header    string
 		timeout   time.Duration
 		logger    *slog.Logger
 	}{
-		{name: "missing backend", validator: validator, jwt: jwtValidator, limiter: rateLimiter, blocker: ipBlocker, header: "X-API-Key", timeout: time.Second, logger: logger},
-		{name: "missing validator", backend: backendURL, jwt: jwtValidator, limiter: rateLimiter, blocker: ipBlocker, header: "X-API-Key", timeout: time.Second, logger: logger},
-		{name: "missing JWT validator", backend: backendURL, validator: validator, limiter: rateLimiter, blocker: ipBlocker, header: "X-API-Key", timeout: time.Second, logger: logger},
-		{name: "missing rate limiter", backend: backendURL, validator: validator, jwt: jwtValidator, blocker: ipBlocker, header: "X-API-Key", timeout: time.Second, logger: logger},
-		{name: "missing IP blocker", backend: backendURL, validator: validator, jwt: jwtValidator, limiter: rateLimiter, header: "X-API-Key", timeout: time.Second, logger: logger},
-		{name: "missing header", backend: backendURL, validator: validator, jwt: jwtValidator, limiter: rateLimiter, blocker: ipBlocker, timeout: time.Second, logger: logger},
-		{name: "invalid timeout", backend: backendURL, validator: validator, jwt: jwtValidator, limiter: rateLimiter, blocker: ipBlocker, header: "X-API-Key", logger: logger},
-		{name: "missing logger", backend: backendURL, validator: validator, jwt: jwtValidator, limiter: rateLimiter, blocker: ipBlocker, header: "X-API-Key", timeout: time.Second},
+		{name: "missing backend", validator: validator, jwt: jwtValidator, limiter: rateLimiter, blocker: ipBlocker, detector: threatDetector, header: "X-API-Key", timeout: time.Second, logger: logger},
+		{name: "missing validator", backend: backendURL, jwt: jwtValidator, limiter: rateLimiter, blocker: ipBlocker, detector: threatDetector, header: "X-API-Key", timeout: time.Second, logger: logger},
+		{name: "missing JWT validator", backend: backendURL, validator: validator, limiter: rateLimiter, blocker: ipBlocker, detector: threatDetector, header: "X-API-Key", timeout: time.Second, logger: logger},
+		{name: "missing rate limiter", backend: backendURL, validator: validator, jwt: jwtValidator, blocker: ipBlocker, detector: threatDetector, header: "X-API-Key", timeout: time.Second, logger: logger},
+		{name: "missing IP blocker", backend: backendURL, validator: validator, jwt: jwtValidator, limiter: rateLimiter, detector: threatDetector, header: "X-API-Key", timeout: time.Second, logger: logger},
+		{name: "missing threat detector", backend: backendURL, validator: validator, jwt: jwtValidator, limiter: rateLimiter, blocker: ipBlocker, header: "X-API-Key", timeout: time.Second, logger: logger},
+		{name: "missing header", backend: backendURL, validator: validator, jwt: jwtValidator, limiter: rateLimiter, blocker: ipBlocker, detector: threatDetector, timeout: time.Second, logger: logger},
+		{name: "invalid timeout", backend: backendURL, validator: validator, jwt: jwtValidator, limiter: rateLimiter, blocker: ipBlocker, detector: threatDetector, header: "X-API-Key", logger: logger},
+		{name: "missing logger", backend: backendURL, validator: validator, jwt: jwtValidator, limiter: rateLimiter, blocker: ipBlocker, detector: threatDetector, header: "X-API-Key", timeout: time.Second},
 	}
 
 	for _, tt := range tests {
 		tt := tt
 		t.Run(tt.name, func(t *testing.T) {
 			t.Parallel()
-			if _, err := NewHandler(tt.backend, tt.validator, tt.jwt, tt.limiter, tt.blocker, tt.header, tt.timeout, tt.logger); err == nil {
+			if _, err := NewHandler(tt.backend, tt.validator, tt.jwt, tt.limiter, tt.blocker, tt.detector, tt.header, tt.timeout, tt.logger); err == nil {
 				t.Fatal("expected error")
 			}
 		})
