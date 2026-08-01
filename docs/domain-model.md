@@ -56,10 +56,18 @@ Alembic migrations in the repo — this file is a map/summary, not canonical.
 - method, path, status_code, created_at
 - Raw credentials, request bodies, and arbitrary headers are never persisted
 
+### RoutePermission
+- id, method, path_pattern (exact request path), required_scope
+- status (active | disabled), created_by, created_at, updated_at
+- Active policies are evaluated by the reverse proxy after API-key and JWT
+  validation. If no active method/path policy matches, the proxy allows the
+  request by default; a matching policy requires the exact scope on the key.
+
 ## Relationships
 - User 1 --- * APIKey (owns)
 - APIKey 0..1 --- * RateLimitRule (a rule may optionally scope to a specific key)
 - ThreatRule / IPBlock --- * SecurityEvent (logical linkage by rule/event type)
+- User 1 --- * RoutePermission (creates policy)
 
 ## Key Constraints to Preserve
 - One active RateLimitRule per scope (scope_type + scope_value)

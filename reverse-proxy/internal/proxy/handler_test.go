@@ -92,6 +92,8 @@ func TestHandler(t *testing.T) {
 		validationErr    error
 		jwtToken         string
 		jwtError         error
+		method           string
+		scopes           []string
 		rateLimitResult  RateLimitResult
 		rateLimitError   error
 		ipBlocked        bool
@@ -115,6 +117,7 @@ func TestHandler(t *testing.T) {
 		{name: "invalid JWT", apiKey: "ak_valid", jwtToken: "invalid", jwtError: ErrJWTInvalid, wantStatus: http.StatusUnauthorized, wantErrorCode: "JWT_INVALID"},
 		{name: "expired JWT", apiKey: "ak_valid", jwtToken: "expired", jwtError: ErrJWTExpired, wantStatus: http.StatusUnauthorized, wantErrorCode: "JWT_EXPIRED"},
 		{name: "policy unavailable", apiKey: "ak_valid", jwtToken: "token", jwtError: ErrPolicyUnavailable, wantStatus: http.StatusBadGateway, wantErrorCode: "CONTROL_PLANE_UNAVAILABLE"},
+		{name: "write scope allowed", apiKey: "ak_valid", jwtToken: "valid", method: http.MethodPost, scopes: []string{"orders:write"}, rateLimitResult: RateLimitResult{Allowed: true, Limit: 10, Remaining: 9}, wantStatus: http.StatusCreated, wantBackendCalls: 1},
 		{name: "rate limiter unavailable", apiKey: "ak_valid", jwtToken: "valid", rateLimitError: errors.New("Redis unavailable"), wantStatus: http.StatusServiceUnavailable, wantErrorCode: "RATE_LIMIT_UNAVAILABLE"},
 		{name: "rate limit exceeded", apiKey: "ak_valid", jwtToken: "valid", rateLimitResult: RateLimitResult{Allowed: false, Limit: 2, RetryAfter: time.Second}, wantStatus: http.StatusTooManyRequests, wantErrorCode: "RATE_LIMIT_EXCEEDED"},
 		{name: "valid credentials", apiKey: "ak_valid", jwtToken: "valid", rateLimitResult: RateLimitResult{Allowed: true, Limit: 10, Remaining: 9}, wantStatus: http.StatusCreated, wantBackendCalls: 1},
@@ -144,8 +147,12 @@ func TestHandler(t *testing.T) {
 			if err != nil {
 				t.Fatalf("parse backend URL: %v", err)
 			}
+			scopes := tt.scopes
+			if scopes == nil {
+				scopes = []string{"orders:read"}
+			}
 			validator := &fakeValidator{
-				keyInfo: &KeyInfo{ID: 1, Status: "active"},
+				keyInfo: &KeyInfo{ID: 1, Status: "active", Scopes: scopes},
 				err:     tt.validationErr,
 			}
 			jwtValidator := &fakeJWTValidator{err: tt.jwtError}
@@ -172,7 +179,11 @@ func TestHandler(t *testing.T) {
 				t.Fatalf("create handler: %v", err)
 			}
 
-			req := httptest.NewRequest(http.MethodGet, "http://proxy.example/orders?limit=10", nil)
+			method := tt.method
+			if method == "" {
+				method = http.MethodGet
+			}
+			req := httptest.NewRequest(method, "http://proxy.example/orders?limit=10", nil)
 			if tt.apiKey != "" {
 				req.Header.Set("X-API-Key", tt.apiKey)
 			}
@@ -240,6 +251,101 @@ func TestHandlerRespectsValidationTimeout(t *testing.T) {
 
 	if recorder.Code != http.StatusBadGateway {
 		t.Fatalf("status = %d, want %d", recorder.Code, http.StatusBadGateway)
+	}
+}
+
+func TestHasScopeRequiresExactScope(t *testing.T) {
+	t.Parallel()
+
+	tests := []struct {
+		name     string
+		scopes   []string
+		required string
+		want     bool
+	}{
+		{name: "specific match", scopes: []string{"echo:read"}, required: "echo:read", want: true},
+		{name: "resource wildcard is not implicit", scopes: []string{"echo:*"}, required: "echo:write", want: false},
+		{name: "global wildcard is not implicit", scopes: []string{"*"}, required: "echo:write", want: false},
+		{name: "missing write", scopes: []string{"echo:read"}, required: "echo:write", want: false},
+	}
+
+	for _, tt := range tests {
+		tt := tt
+		t.Run(tt.name, func(t *testing.T) {
+			t.Parallel()
+			if got := hasScope(tt.scopes, tt.required); got != tt.want {
+				t.Fatalf("hasScope() = %v, want %v", got, tt.want)
+			}
+		})
+	}
+}
+
+func TestHandlerEnforcesBackendRoutePermissionPolicy(t *testing.T) {
+	t.Parallel()
+
+	backendCalls := atomic.Int32{}
+	backend := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, _ *http.Request) {
+		backendCalls.Add(1)
+		w.WriteHeader(http.StatusOK)
+	}))
+	t.Cleanup(backend.Close)
+	backendURL, _ := url.Parse(backend.URL)
+
+	policy := &PolicySnapshot{RoutePermissions: []RoutePermissionPolicy{
+		{ID: 1, Method: http.MethodGet, PathPattern: "/protected", RequiredScope: "orders:read"},
+		{ID: 2, Method: http.MethodPost, PathPattern: "/protected", RequiredScope: "orders:write"},
+	}}
+	provider := policyProviderFunc(func(context.Context) (*PolicySnapshot, error) { return policy, nil })
+	rateLimiter := &fakeRateLimiter{result: RateLimitResult{Allowed: true}}
+	reporter := &fakeEventReporter{}
+	handler, err := NewHandlerWithPolicy(
+		backendURL,
+		&fakeValidator{keyInfo: &KeyInfo{ID: 9, Scopes: []string{"orders:read"}}},
+		&fakeJWTValidator{}, rateLimiter, &fakeIPBlocker{}, &fakeThreatDetector{}, reporter,
+		provider, "X-API-Key", time.Second, slog.New(slog.NewTextHandler(io.Discard, nil)),
+	)
+	if err != nil {
+		t.Fatalf("create handler: %v", err)
+	}
+
+	tests := []struct {
+		name          string
+		method        string
+		path          string
+		wantStatus    int
+		wantEvent     string
+		wantRateCalls int32
+	}{
+		{"matching scope allowed", http.MethodGet, "/protected", http.StatusOK, "request_forwarded", 1},
+		{"missing scope denied", http.MethodPost, "/protected", http.StatusForbidden, "insufficient_scope", 0},
+		{"method mismatch allowed by default", http.MethodPut, "/protected", http.StatusOK, "request_forwarded", 1},
+		{"path mismatch allowed by default", http.MethodGet, "/other", http.StatusOK, "request_forwarded", 1},
+	}
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			reporter.events = nil
+			rateLimiter.calls.Store(0)
+			req := httptest.NewRequest(tt.method, "http://proxy.example"+tt.path, nil)
+			req.Header.Set("X-API-Key", "ak_valid")
+			req.Header.Set("Authorization", "Bearer valid")
+			recorder := httptest.NewRecorder()
+			handler.ServeHTTP(recorder, req)
+			if recorder.Code != tt.wantStatus {
+				t.Fatalf("status = %d, want %d; body=%s", recorder.Code, tt.wantStatus, recorder.Body.String())
+			}
+			if !strings.Contains(recorder.Body.String(), `"INSUFFICIENT_SCOPE"`) && tt.wantEvent == "insufficient_scope" {
+				t.Fatalf("body = %s, want insufficient scope error", recorder.Body.String())
+			}
+			if len(reporter.events) != 1 || reporter.events[0].EventType != tt.wantEvent {
+				t.Fatalf("events = %#v, want %s", reporter.events, tt.wantEvent)
+			}
+			if got := rateLimiter.calls.Load(); got != tt.wantRateCalls {
+				t.Fatalf("rate limiter calls = %d, want %d", got, tt.wantRateCalls)
+			}
+		})
+	}
+	if got := backendCalls.Load(); got != 3 {
+		t.Fatalf("backend calls = %d, want 3", got)
 	}
 }
 

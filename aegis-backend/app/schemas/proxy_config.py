@@ -38,11 +38,19 @@ class ProxyThreatPolicy(BaseModel):
     severity: str
 
 
+class ProxyRoutePermissionPolicy(BaseModel):
+    id: int
+    method: str
+    path_pattern: str
+    required_scope: str
+
+
 class ProxyPolicySnapshot(BaseModel):
     """Atomic REST policy snapshot used until gRPC synchronization is added."""
 
     generated_at: datetime = Field(default_factory=lambda: datetime.now(timezone.utc))
     jwt: ProxyJWTValidationPolicy | None
-    rate_limit_rules: list[ProxyRateLimitPolicy]
-    blocked_ip_addresses: list[str]
-    threat_rules: list[ProxyThreatPolicy]
+    rate_limit_rules: list[ProxyRateLimitPolicy] = Field(default_factory=list)
+    blocked_ip_addresses: list[str] = Field(default_factory=list)
+    threat_rules: list[ProxyThreatPolicy] = Field(default_factory=list)
+    route_permissions: list[ProxyRoutePermissionPolicy] = Field(default_factory=list)

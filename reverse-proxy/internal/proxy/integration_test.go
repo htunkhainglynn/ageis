@@ -33,7 +33,7 @@ func TestAPIKeyValidationAndForwardingIntegration(t *testing.T) {
 			name:             "valid key is cached and forwarded",
 			apiKey:           "ak_valid",
 			controlStatus:    http.StatusOK,
-			controlBody:      `{"status":"success","data":{"id":1,"key_prefix":"ak_valid","owner_id":1,"scopes":["read"],"status":"active","expires_at":null}}`,
+			controlBody:      `{"status":"success","data":{"id":1,"key_prefix":"ak_valid","owner_id":1,"scopes":["orders:read"],"status":"active","expires_at":null}}`,
 			requestCount:     2,
 			wantStatus:       http.StatusOK,
 			wantControlCalls: 1,

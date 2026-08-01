@@ -7,6 +7,7 @@ from app.repositories.ip_block_repository import IPBlockRepository
 from app.repositories.jwt_config_repository import JWTConfigRepository
 from app.repositories.rate_limit_rule_repository import RateLimitRuleRepository
 from app.repositories.threat_rule_repository import ThreatRuleRepository
+from app.repositories.route_permission_repository import RoutePermissionRepository
 from app.schemas.base import ApiResponse, success_response
 from app.schemas.proxy_config import ProxyPolicySnapshot
 from app.services.proxy_config_service import ProxyConfigService
@@ -23,6 +24,7 @@ def get_proxy_config_service(
         rate_limit_rule_repository=RateLimitRuleRepository(db=db),
         ip_block_repository=IPBlockRepository(db=db),
         threat_rule_repository=ThreatRuleRepository(db=db),
+        route_permission_repository=RoutePermissionRepository(db=db),
     )
 
 

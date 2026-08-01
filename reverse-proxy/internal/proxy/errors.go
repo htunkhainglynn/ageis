@@ -6,6 +6,7 @@ var (
 	ErrKeyNotFound          = errors.New("API key not found")
 	ErrKeyRevoked           = errors.New("API key revoked")
 	ErrKeyExpired           = errors.New("API key expired")
+	ErrKeyScopeForbidden    = errors.New("API key scope forbidden")
 	ErrValidatorUnavailable = errors.New("key validator unavailable")
 	ErrPolicyUnavailable    = errors.New("proxy policy unavailable")
 	ErrJWTMissing           = errors.New("JWT missing")

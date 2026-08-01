@@ -136,7 +136,7 @@ func main() {
 		os.Exit(1)
 	}
 	defer eventReporter.Close()
-	proxyHandler, err := proxycore.NewHandler(
+	proxyHandler, err := proxycore.NewHandlerWithPolicy(
 		cfg.BackendURL,
 		validator,
 		jwtValidator,
@@ -144,6 +144,7 @@ func main() {
 		ipBlocker,
 		threatDetector,
 		eventReporter,
+		policyProvider,
 		cfg.APIKeyHeader,
 		cfg.ValidationTimeout,
 		logger,

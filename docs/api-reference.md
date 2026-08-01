@@ -58,6 +58,17 @@ Base path: `/api/v1/`. Keep this synchronized with the generated OpenAPI schema.
 - `PATCH /threat-rules/{id}`
 - `DELETE /threat-rules/{id}` — soft delete (status=disabled)
 
+### Route Permissions (Admin)
+- `POST /route-permissions` — create an exact method/path scope policy
+- `GET /route-permissions?skip&limit&status` — list policies
+- `GET /route-permissions/{id}`
+- `PATCH /route-permissions/{id}`
+- `DELETE /route-permissions/{id}` — soft delete (status=disabled)
+
+`method` is a supported HTTP method, `path_pattern` is an exact path beginning
+with `/` (wildcards and query strings are rejected), and `required_scope` uses
+`resource:action` format.
+
 ### Analytics (Admin or Viewer)
 - `GET /analytics/summary?hours` — outcome totals and event-type counts
 - `GET /analytics/events?hours&skip&limit` — recent sanitized proxy outcomes
@@ -70,7 +81,7 @@ to both components through the environment.
 - `POST /api-keys/validate` — verifies a presented raw key against prefix
   candidates and bcrypt hashes; returns only enforcement metadata
 - `GET /internal/proxy-config` — returns active JWT verification, rate-limit,
-  IP-block, and threat-rule policy. HS256 requires decrypted shared verification
+  IP-block, threat-rule, and route-permission policy. HS256 requires decrypted shared verification
   material; RS256/ES256 return only the public verification key.
 - `POST /internal/security-events` — ingest one sanitized proxy outcome; raw
   credentials, request bodies, and arbitrary headers are forbidden
@@ -92,5 +103,8 @@ to both components through the environment.
   credentials and ignores untrusted forwarding headers.
 - Active threat rules are matched against method plus path/query using Go RE2;
   matching requests are rejected before forwarding.
+- Active route permissions are matched by exact method and path. Matching
+  requests require the exact `required_scope` in the validated API key scopes;
+  unmatched requests are allowed by default.
 - Sanitized outcome events are delivered asynchronously through a bounded
   queue, keeping Control Plane/database latency off the forwarding hot path.

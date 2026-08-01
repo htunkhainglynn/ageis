@@ -4,11 +4,13 @@ from app.repositories.ip_block_repository import IPBlockRepository
 from app.repositories.jwt_config_repository import JWTConfigRepository
 from app.repositories.rate_limit_rule_repository import RateLimitRuleRepository
 from app.repositories.threat_rule_repository import ThreatRuleRepository
+from app.repositories.route_permission_repository import RoutePermissionRepository
 from app.schemas.proxy_config import (
     ProxyJWTValidationPolicy,
     ProxyPolicySnapshot,
     ProxyRateLimitPolicy,
     ProxyThreatPolicy,
+    ProxyRoutePermissionPolicy,
 )
 
 
@@ -21,11 +23,13 @@ class ProxyConfigService:
         rate_limit_rule_repository: RateLimitRuleRepository,
         ip_block_repository: IPBlockRepository,
         threat_rule_repository: ThreatRuleRepository,
+        route_permission_repository: RoutePermissionRepository,
     ) -> None:
         self.jwt_config_repository = jwt_config_repository
         self.rate_limit_rule_repository = rate_limit_rule_repository
         self.ip_block_repository = ip_block_repository
         self.threat_rule_repository = threat_rule_repository
+        self.route_permission_repository = route_permission_repository
 
     async def get_snapshot(self) -> ProxyPolicySnapshot:
         """Return active JWT and rate-limit policies in one consistent shape."""
@@ -33,6 +37,7 @@ class ProxyConfigService:
         rate_limit_rules = await self.rate_limit_rule_repository.list_active_rules()
         ip_blocks = await self.ip_block_repository.list_active_blocks()
         threat_rules = await self.threat_rule_repository.list_active_rules()
+        route_permissions = await self.route_permission_repository.list_active_permissions()
 
         jwt_policy: ProxyJWTValidationPolicy | None = None
         if jwt_config is not None:
@@ -70,5 +75,14 @@ class ProxyConfigService:
                     id=rule.id, name=rule.name, pattern=rule.pattern, severity=rule.severity
                 )
                 for rule in threat_rules
+            ],
+            route_permissions=[
+                ProxyRoutePermissionPolicy(
+                    id=permission.id,
+                    method=permission.method,
+                    path_pattern=permission.path_pattern,
+                    required_scope=permission.required_scope,
+                )
+                for permission in route_permissions
             ],
         )

@@ -26,6 +26,7 @@ from app.core.encryption import decrypt_jwt_signing_key
 from app.models.api_key import APIKey
 from app.models.jwt_config import JWTConfig
 from app.models.rate_limit_rule import RateLimitRule
+from app.models.route_permission import RoutePermission
 from app.models.user import User
 
 DEV_USER_EMAILS = (ADMIN_EMAIL, VIEWER_EMAIL, CONSUMER1_EMAIL, CONSUMER2_EMAIL)
@@ -79,6 +80,15 @@ async def render_dev_data_report(session: AsyncSession) -> str:
         .scalars()
         .all()
     )
+    route_permissions = list(
+        (
+            await session.execute(
+                select(RoutePermission)
+                .where(RoutePermission.required_scope.in_(("echo:read", "echo:write", "orders:read")))
+                .order_by(RoutePermission.id.asc())
+            )
+        ).scalars().all()
+    )
 
     sections = [
         "USERS",
@@ -119,6 +129,16 @@ async def render_dev_data_report(session: AsyncSession) -> str:
                     rule.status,
                 )
                 for rule in rules
+            ],
+        ),
+        "",
+        "ROUTE PERMISSIONS",
+        format_table(
+            ("method", "path_pattern", "required_scope", "status", "id"),
+            [
+                (permission.method, permission.path_pattern, permission.required_scope,
+                 permission.status, permission.id)
+                for permission in route_permissions
             ],
         ),
         "",

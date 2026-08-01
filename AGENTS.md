@@ -65,7 +65,11 @@ Verified on 2026-07-31 against the actual monorepo:
   duplicate protection, gRPC distribution, dashboard visibility, and E2E
   enforcement.
 - Authenticated internal policy snapshot returning only active JWT validation
-  material and active rate-limit rules for the reverse proxy.
+  material, active rate-limit rules, and active route-permission policies for
+  the reverse proxy.
+- Admin-only route-permission CRUD with exact method/path matching, soft
+  deletion, active duplicate protection, policy-snapshot distribution, and
+  reverse-proxy `INSUFFICIENT_SCOPE` enforcement after JWT validation.
 - Dashboard login and configuration pages for users, API keys, rate limits,
   JWT configuration, system health, and an analytics placeholder. Navigation
   and route visibility follow the role matrix.
@@ -85,7 +89,7 @@ Verified on 2026-07-31 against the actual monorepo:
 
 Current checkpoint verification:
 
-- Control Plane: 44 pytest tests pass, none skipped; all migrations apply
+- Control Plane: 47 pytest tests pass, none skipped; all migrations apply
   successfully to PostgreSQL.
 - Dashboard: lint, production build, and 6 Node tests pass, none skipped.
 - Reverse proxy baseline: `go test -race ./...` and `go vet ./...` pass.
@@ -153,6 +157,10 @@ Have scope below remains unbuilt.
   expressions over `METHOD path?query`. Bodies and arbitrary headers are not
   inspected, keeping streaming requests intact and avoiding accidental secret
   capture; RE2 provides linear-time matching without backtracking attacks.
+- **Route authorization:** route-to-scope mappings are persisted in the Control
+  Plane and distributed in the cached policy snapshot. The proxy never derives
+  resource names from URL paths; it performs exact method/path lookup and
+  allows unmatched routes by default during this incremental rollout.
 - **Analytics data minimization:** security events persist outcome, direct
   source IP, optional API-key/rule IDs, method, path, and status only. They
   never contain raw API keys, JWTs, request bodies, or arbitrary headers.

@@ -37,7 +37,7 @@ values = {
     "JWT_SECRET_KEY": secrets.token_hex(32),
     "JWT_CONFIG_ENCRYPTION_KEY": fernet_key(),
     "INTERNAL_API_TOKEN": secrets.token_hex(32),
-    "BOOTSTRAP_ADMIN_EMAILS": "admin@aegis.local",
+    "BOOTSTRAP_ADMIN_EMAILS": "admin@aegis.dev",
     "BOOTSTRAP_ADMIN_PASSWORD": f"Aa1!{secrets.token_hex(12)}",
     "BOOTSTRAP_ADMIN_FULL_NAME": "Aegis Administrator",
     "POSTGRES_PORT": "5432",

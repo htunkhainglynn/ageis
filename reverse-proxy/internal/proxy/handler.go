@@ -40,6 +40,7 @@ type Handler struct {
 	ipBlocker         IPBlocker
 	threatDetector    ThreatDetector
 	eventReporter     EventReporter
+	policyProvider    PolicyProvider
 	apiKeyHeader      string
 	validationTimeout time.Duration
 }
@@ -58,6 +59,38 @@ func NewHandler(
 	ipBlocker IPBlocker,
 	threatDetector ThreatDetector,
 	eventReporter EventReporter,
+	apiKeyHeader string,
+	validationTimeout time.Duration,
+	logger *slog.Logger,
+) (*Handler, error) {
+	return newHandler(backendURL, validator, jwtValidator, rateLimiter, ipBlocker, threatDetector, eventReporter, nil, apiKeyHeader, validationTimeout, logger)
+}
+
+func NewHandlerWithPolicy(
+	backendURL *url.URL,
+	validator KeyValidator,
+	jwtValidator JWTValidator,
+	rateLimiter RateLimiter,
+	ipBlocker IPBlocker,
+	threatDetector ThreatDetector,
+	eventReporter EventReporter,
+	policyProvider PolicyProvider,
+	apiKeyHeader string,
+	validationTimeout time.Duration,
+	logger *slog.Logger,
+) (*Handler, error) {
+	return newHandler(backendURL, validator, jwtValidator, rateLimiter, ipBlocker, threatDetector, eventReporter, policyProvider, apiKeyHeader, validationTimeout, logger)
+}
+
+func newHandler(
+	backendURL *url.URL,
+	validator KeyValidator,
+	jwtValidator JWTValidator,
+	rateLimiter RateLimiter,
+	ipBlocker IPBlocker,
+	threatDetector ThreatDetector,
+	eventReporter EventReporter,
+	policyProvider PolicyProvider,
 	apiKeyHeader string,
 	validationTimeout time.Duration,
 	logger *slog.Logger,
@@ -107,6 +140,7 @@ func NewHandler(
 		ipBlocker:         ipBlocker,
 		threatDetector:    threatDetector,
 		eventReporter:     eventReporter,
+		policyProvider:    policyProvider,
 		apiKeyHeader:      apiKeyHeader,
 		validationTimeout: validationTimeout,
 	}, nil
@@ -208,6 +242,10 @@ func (h *Handler) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
+	if err := h.authorizeRoute(ctx, r, keyInfo, &event, w); err != nil {
+		return
+	}
+
 	rateLimitResult, err := h.rateLimiter.Allow(ctx, keyInfo, r.URL.Path)
 	if err != nil {
 		event.EventType, event.StatusCode = "rate_limit_unavailable", http.StatusServiceUnavailable
@@ -249,6 +287,45 @@ func sourceIP(remoteAddr string) string {
 		return "unknown"
 	}
 	return address.String()
+}
+
+func hasScope(scopes []string, required string) bool {
+	for _, scope := range scopes {
+		if strings.TrimSpace(scope) == required {
+			return true
+		}
+	}
+	return false
+}
+
+func (h *Handler) authorizeRoute(
+	ctx context.Context,
+	r *http.Request,
+	keyInfo *KeyInfo,
+	event *SecurityEvent,
+	w http.ResponseWriter,
+) error {
+	if h.policyProvider == nil {
+		return nil
+	}
+	snapshot, err := h.policyProvider.GetPolicy(ctx)
+	if err != nil || snapshot == nil {
+		event.EventType, event.StatusCode = "policy_unavailable", http.StatusServiceUnavailable
+		writeError(w, http.StatusServiceUnavailable, "ROUTE_PERMISSION_POLICY_UNAVAILABLE", "Route permission policy is temporarily unavailable.")
+		return err
+	}
+	for _, permission := range snapshot.RoutePermissions {
+		if permission.Method != r.Method || permission.PathPattern != r.URL.Path {
+			continue
+		}
+		if hasScope(keyInfo.Scopes, permission.RequiredScope) {
+			return nil
+		}
+		event.EventType, event.StatusCode = "insufficient_scope", http.StatusForbidden
+		writeError(w, http.StatusForbidden, "INSUFFICIENT_SCOPE", "This API key does not have permission to access this route.")
+		return ErrKeyScopeForbidden
+	}
+	return nil
 }
 
 type proxyStatusRecorder struct {

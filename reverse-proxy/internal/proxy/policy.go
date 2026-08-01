@@ -30,12 +30,20 @@ type ThreatPolicy struct {
 	Severity string `json:"severity"`
 }
 
+type RoutePermissionPolicy struct {
+	ID            int64  `json:"id"`
+	Method        string `json:"method"`
+	PathPattern   string `json:"path_pattern"`
+	RequiredScope string `json:"required_scope"`
+}
+
 type PolicySnapshot struct {
-	GeneratedAt        time.Time         `json:"generated_at"`
-	JWT                *JWTPolicy        `json:"jwt"`
-	RateLimitRules     []RateLimitPolicy `json:"rate_limit_rules"`
-	BlockedIPAddresses []string          `json:"blocked_ip_addresses"`
-	ThreatRules        []ThreatPolicy    `json:"threat_rules"`
+	GeneratedAt        time.Time               `json:"generated_at"`
+	JWT                *JWTPolicy              `json:"jwt"`
+	RateLimitRules     []RateLimitPolicy       `json:"rate_limit_rules"`
+	BlockedIPAddresses []string                `json:"blocked_ip_addresses"`
+	ThreatRules        []ThreatPolicy          `json:"threat_rules"`
+	RoutePermissions   []RoutePermissionPolicy `json:"route_permissions"`
 }
 
 type PolicyProvider interface {

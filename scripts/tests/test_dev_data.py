@@ -38,6 +38,7 @@ from app.models.rate_limit_rule import (  # noqa: E402
     RateLimitRule,
     RateLimitRuleScopeType,
 )
+from app.models.route_permission import RoutePermission  # noqa: E402
 from app.models.user import User, UserRole  # noqa: E402
 
 
@@ -147,8 +148,9 @@ async def test_seed_is_idempotent_secure_and_report_is_sanitized(
     user_count = await db_session.scalar(select(func.count(User.id)))
     key_count = await db_session.scalar(select(func.count(APIKey.id)))
     rule_count = await db_session.scalar(select(func.count(RateLimitRule.id)))
+    permission_count = await db_session.scalar(select(func.count(RoutePermission.id)))
     jwt_count = await db_session.scalar(select(func.count(JWTConfig.id)))
-    assert (user_count, key_count, rule_count, jwt_count) == (4, 3, 3, 1)
+    assert (user_count, key_count, rule_count, permission_count, jwt_count) == (4, 3, 3, 3, 1)
 
     users = {
         user.email: user
@@ -184,6 +186,9 @@ async def test_seed_is_idempotent_secure_and_report_is_sanitized(
         APIKeyStatus.ACTIVE.value,
         APIKeyStatus.REVOKED.value,
     ]
+    assert api_keys[0].scopes == ["echo:read"]
+    assert api_keys[1].scopes == ["echo:read", "echo:write", "orders:read"]
+    assert api_keys[2].scopes == ["echo:read"]
 
     rules = list(
         (

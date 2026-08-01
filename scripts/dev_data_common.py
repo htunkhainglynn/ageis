@@ -16,10 +16,10 @@ if str(BACKEND_ROOT) not in sys.path:
 
 DEV_ENVIRONMENT = "development"
 
-ADMIN_EMAIL = "admin@aegis.local"
-VIEWER_EMAIL = "viewer@aegis.local"
-CONSUMER1_EMAIL = "consumer1@aegis.local"
-CONSUMER2_EMAIL = "consumer2@aegis.local"
+ADMIN_EMAIL = "admin@aegis.dev"
+VIEWER_EMAIL = "viewer@aegis.dev"
+CONSUMER1_EMAIL = "consumer1@aegis.dev"
+CONSUMER2_EMAIL = "consumer2@aegis.dev"
 
 CONSUMER1_ACTIVE_KEY_NAME = "DEV SEED - consumer1 active"
 CONSUMER1_REVOKED_KEY_NAME = "DEV SEED - consumer1 revoked"
@@ -37,6 +37,15 @@ DEV_RATE_RULE_NAMES = (
     GLOBAL_RULE_NAME,
     CONSUMER1_RULE_NAME,
     ECHO_ROUTE_RULE_NAME,
+)
+
+ECHO_READ_PERMISSION_NAME = "DEV SEED - echo read permission"
+ECHO_WRITE_PERMISSION_NAME = "DEV SEED - echo write permission"
+ORDERS_READ_PERMISSION_NAME = "DEV SEED - orders read permission"
+DEV_ROUTE_PERMISSION_NAMES = (
+    ECHO_READ_PERMISSION_NAME,
+    ECHO_WRITE_PERMISSION_NAME,
+    ORDERS_READ_PERMISSION_NAME,
 )
 
 JWT_CONFIG_NAME = "DEV SEED - echo service HS256"

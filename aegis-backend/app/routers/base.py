@@ -9,6 +9,7 @@ from app.routers.rate_limit_rule_router import router as rate_limit_rule_router
 from app.routers.user_router import router as user_router
 from app.routers.threat_rule_router import router as threat_rule_router
 from app.routers.analytics_router import router as analytics_router
+from app.routers.route_permission_router import router as route_permission_router
 
 api_router = APIRouter(prefix="/api/v1")
 api_router.include_router(user_router)
@@ -20,3 +21,4 @@ api_router.include_router(jwt_config_router)
 api_router.include_router(internal_router)
 api_router.include_router(threat_rule_router)
 api_router.include_router(analytics_router)
+api_router.include_router(route_permission_router)

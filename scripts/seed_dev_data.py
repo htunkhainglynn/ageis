@@ -4,6 +4,7 @@
 from __future__ import annotations
 
 import asyncio
+import logging
 from dataclasses import dataclass
 from datetime import datetime, timedelta, timezone
 
@@ -45,7 +46,10 @@ from app.models.rate_limit_rule import (
     RateLimitRuleScopeType,
     RateLimitRuleStatus,
 )
+from app.models.route_permission import RoutePermission, RoutePermissionStatus
 from app.models.user import User, UserRole
+
+logging.getLogger("passlib").setLevel(logging.ERROR)
 
 
 @dataclass(frozen=True)
@@ -55,6 +59,7 @@ class SeedResult:
     users: tuple[User, ...]
     api_keys: tuple[APIKey, ...]
     rate_limit_rules: tuple[RateLimitRule, ...]
+    route_permissions: tuple[RoutePermission, ...]
     jwt_config: JWTConfig
 
 
@@ -63,6 +68,13 @@ USER_SPECS = (
     (VIEWER_EMAIL, "Aegis Development Viewer", UserRole.VIEWER),
     (CONSUMER1_EMAIL, "Aegis Development Consumer One", UserRole.API_CONSUMER),
     (CONSUMER2_EMAIL, "Aegis Development Consumer Two", UserRole.API_CONSUMER),
+)
+
+LEGACY_LOCAL_USER_EMAILS = (
+    ("admin@aegis.local", "legacy-admin@aegis.dev"),
+    ("viewer@aegis.local", "legacy-viewer@aegis.dev"),
+    ("consumer1@aegis.local", "legacy-consumer1@aegis.dev"),
+    ("consumer2@aegis.local", "legacy-consumer2@aegis.dev"),
 )
 
 
@@ -98,12 +110,33 @@ async def _upsert_user(
     return user
 
 
+async def _retire_legacy_local_users(session: AsyncSession) -> None:
+    """Rename old invalid .local demo users so response validation still works."""
+    for old_email, new_email in LEGACY_LOCAL_USER_EMAILS:
+        result = await session.execute(select(User).where(User.email == old_email))
+        legacy_user = result.scalar_one_or_none()
+        if legacy_user is None:
+            continue
+
+        existing_new = (
+            await session.execute(select(User).where(User.email == new_email))
+        ).scalar_one_or_none()
+        if existing_new is not None and existing_new.id != legacy_user.id:
+            legacy_user.email = f"legacy-{legacy_user.id}@aegis.dev"
+        else:
+            legacy_user.email = new_email
+        legacy_user.full_name = f"Retired {legacy_user.full_name}"
+        legacy_user.is_active = False
+    await session.flush()
+
+
 async def _upsert_api_key(
     session: AsyncSession,
     *,
     owner: User,
     name: str,
     raw_key: str,
+    scopes: list[str],
     status: APIKeyStatus,
 ) -> APIKey:
     result = await session.execute(
@@ -127,14 +160,14 @@ async def _upsert_api_key(
             name=name,
             key_hash=hash_password(raw_key),
             key_prefix=prefix,
-            scopes=["echo:read"],
+            scopes=scopes,
             status=status.value,
             expires_at=None,
         )
         session.add(api_key)
     else:
         api_key.key_prefix = prefix
-        api_key.scopes = ["echo:read"]
+        api_key.scopes = scopes
         api_key.status = status.value
         api_key.expires_at = None
         if not key_matches:
@@ -249,6 +282,38 @@ async def _upsert_jwt_config(
     return jwt_config
 
 
+async def _upsert_route_permission(
+    session: AsyncSession,
+    *,
+    method: str,
+    path_pattern: str,
+    required_scope: str,
+    created_by: int,
+) -> RoutePermission:
+    result = await session.execute(
+        select(RoutePermission)
+        .where(RoutePermission.method == method, RoutePermission.path_pattern == path_pattern)
+        .order_by(RoutePermission.id.asc())
+        .limit(1)
+    )
+    permission = result.scalar_one_or_none()
+    if permission is None:
+        permission = RoutePermission(
+            method=method,
+            path_pattern=path_pattern,
+            required_scope=required_scope,
+            status=RoutePermissionStatus.ACTIVE.value,
+            created_by=created_by,
+        )
+        session.add(permission)
+    else:
+        permission.required_scope = required_scope
+        permission.status = RoutePermissionStatus.ACTIVE.value
+        permission.created_by = created_by
+    await session.flush()
+    return permission
+
+
 async def seed_dev_data(session: AsyncSession, secrets: DevSecrets) -> SeedResult:
     """Upsert the complete deterministic dev dataset in one transaction."""
     users: list[User] = []
@@ -259,6 +324,7 @@ async def seed_dev_data(session: AsyncSession, secrets: DevSecrets) -> SeedResul
         users.append(
             await _upsert_user(session, email, full_name, role, password)
         )
+    await _retire_legacy_local_users(session)
 
     users_by_email = {user.email: user for user in users}
     admin = users_by_email[ADMIN_EMAIL]
@@ -271,6 +337,7 @@ async def seed_dev_data(session: AsyncSession, secrets: DevSecrets) -> SeedResul
             owner=consumer1,
             name=CONSUMER1_ACTIVE_KEY_NAME,
             raw_key=secrets.consumer1_active_key,
+            scopes=["echo:read"],
             status=APIKeyStatus.ACTIVE,
         ),
         await _upsert_api_key(
@@ -278,6 +345,7 @@ async def seed_dev_data(session: AsyncSession, secrets: DevSecrets) -> SeedResul
             owner=consumer2,
             name=CONSUMER2_ACTIVE_KEY_NAME,
             raw_key=secrets.consumer2_active_key,
+            scopes=["echo:read", "echo:write", "orders:read"],
             status=APIKeyStatus.ACTIVE,
         ),
         await _upsert_api_key(
@@ -285,6 +353,7 @@ async def seed_dev_data(session: AsyncSession, secrets: DevSecrets) -> SeedResul
             owner=consumer1,
             name=CONSUMER1_REVOKED_KEY_NAME,
             raw_key=secrets.consumer1_revoked_key,
+            scopes=["echo:read"],
             status=APIKeyStatus.REVOKED,
         ),
     )
@@ -322,6 +391,21 @@ async def seed_dev_data(session: AsyncSession, secrets: DevSecrets) -> SeedResul
         ),
     )
 
+    route_permissions = (
+        await _upsert_route_permission(
+            session, method="GET", path_pattern="/api/echo",
+            required_scope="echo:read", created_by=admin.id,
+        ),
+        await _upsert_route_permission(
+            session, method="POST", path_pattern="/api/echo",
+            required_scope="echo:write", created_by=admin.id,
+        ),
+        await _upsert_route_permission(
+            session, method="GET", path_pattern="/api/orders",
+            required_scope="orders:read", created_by=admin.id,
+        ),
+    )
+
     jwt_config = await _upsert_jwt_config(
         session,
         admin_id=admin.id,
@@ -332,6 +416,7 @@ async def seed_dev_data(session: AsyncSession, secrets: DevSecrets) -> SeedResul
         users=tuple(users),
         api_keys=api_keys,
         rate_limit_rules=rate_limit_rules,
+        route_permissions=route_permissions,
         jwt_config=jwt_config,
     )
 
@@ -375,6 +460,7 @@ def print_seed_result(result: SeedResult, secrets: DevSecrets) -> None:
     print(
         f"Seeded IDs: users={','.join(str(user.id) for user in result.users)}; "
         f"api_keys={','.join(str(key.id) for key in result.api_keys)}; "
+        f"route_permissions={','.join(str(permission.id) for permission in result.route_permissions)}; "
         f"jwt_config={result.jwt_config.id}"
     )
 
