@@ -1,0 +1,23 @@
+============================= test session starts ==============================
+platform darwin -- Python 3.13.5, pytest-8.3.3, pluggy-1.6.0 -- /Users/htunkhainglynn/Projects/aegis/aegis-backend/.venv/bin/python
+cachedir: .pytest_cache
+rootdir: /Users/htunkhainglynn/Projects/aegis/aegis-backend
+configfile: pytest.ini
+plugins: asyncio-0.24.0, anyio-4.14.2
+asyncio: mode=Mode.AUTO, default_loop_scope=function
+collecting ... collected 4 items
+
+tests/test_auth_and_user_rbac.py::test_login_and_refresh_tokens_include_current_email_and_role PASSED [ 25%]
+tests/test_auth_and_user_rbac.py::test_user_management_is_admin_only PASSED [ 50%]
+tests/test_api_keys.py::test_create_api_key_returns_raw_key_once PASSED  [ 75%]
+tests/test_route_permissions.py::test_route_permission_validation_and_duplicate_active_scope PASSED [100%]
+
+=============================== warnings summary ===============================
+tests/test_auth_and_user_rbac.py::test_login_and_refresh_tokens_include_current_email_and_role
+tests/test_auth_and_user_rbac.py::test_login_and_refresh_tokens_include_current_email_and_role
+tests/test_auth_and_user_rbac.py::test_login_and_refresh_tokens_include_current_email_and_role
+  /Users/htunkhainglynn/Projects/aegis/aegis-backend/.venv/lib/python3.13/site-packages/jose/jwt.py:311: DeprecationWarning: datetime.datetime.utcnow() is deprecated and scheduled for removal in a future version. Use timezone-aware objects to represent datetimes in UTC: datetime.datetime.now(datetime.UTC).
+    now = timegm(datetime.utcnow().utctimetuple())
+
+-- Docs: https://docs.pytest.org/en/stable/how-to/capture-warnings.html
+======================== 4 passed, 3 warnings in 2.88s =========================

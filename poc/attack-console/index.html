@@ -50,9 +50,9 @@
     }
 
     .shell {
-      width: min(1180px, calc(100% - 32px));
+      width: min(980px, calc(100% - 32px));
       margin: 0 auto;
-      padding: 34px 0 60px;
+      padding: 28px 0 48px;
     }
 
     .hero {
@@ -118,15 +118,15 @@
       overflow: hidden;
       margin-bottom: 18px;
       border: 1px solid var(--line);
-      border-radius: 14px;
+      border-radius: 10px;
       background: var(--navy);
       color: white;
       box-shadow: 0 10px 25px rgba(18, 49, 35, 0.12);
     }
 
     .metric {
-      min-height: 94px;
-      padding: 20px 22px;
+      min-height: 78px;
+      padding: 16px 18px;
       border-right: 1px solid rgba(255, 255, 255, 0.13);
     }
 
@@ -143,23 +143,51 @@
     }
 
     .metric-value {
-      font-size: 1.38rem;
+      font-size: 1.18rem;
       font-weight: 800;
       letter-spacing: -0.025em;
     }
 
-    .grid {
-      display: grid;
-      grid-template-columns: minmax(300px, 0.85fr) minmax(440px, 1.35fr);
-      gap: 18px;
-      align-items: start;
-    }
-
     .panel {
       border: 1px solid var(--line);
-      border-radius: 14px;
+      border-radius: 10px;
       background: var(--panel);
       box-shadow: 0 8px 24px rgba(28, 52, 40, 0.06);
+    }
+
+    .setup-card {
+      display: grid;
+      grid-template-columns: 1.15fr 0.85fr;
+      gap: 14px;
+      margin-bottom: 16px;
+      padding: 18px;
+    }
+
+    .setup-actions {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 8px;
+      margin-top: 14px;
+    }
+
+    .primary-button {
+      border: 1px solid #146542;
+      border-radius: 9px;
+      padding: 10px 14px;
+      color: white;
+      background: var(--green);
+      font-weight: 850;
+      cursor: pointer;
+    }
+
+    .primary-button:hover:not(:disabled) { background: #146542; }
+
+    .demo-steps {
+      margin: 0;
+      padding-left: 20px;
+      color: var(--muted);
+      font-size: 0.84rem;
+      line-height: 1.7;
     }
 
     .panel-header {
@@ -240,6 +268,21 @@
 
     .secondary-button:hover, .clear-button:hover { background: #f3f6f4; }
 
+    .helper-output {
+      max-height: 150px;
+      overflow: auto;
+      border: 1px solid #d9e1dc;
+      border-radius: 9px;
+      padding: 10px;
+      color: #314139;
+      background: #f7faf8;
+      white-space: pre-wrap;
+      font-size: 0.82rem;
+      line-height: 1.45;
+    }
+
+    .helper-output:empty { display: none; }
+
     .config-state {
       display: inline-flex;
       align-items: center;
@@ -268,12 +311,12 @@
 
     .scenario-grid {
       display: grid;
-      grid-template-columns: repeat(2, minmax(0, 1fr));
+      grid-template-columns: repeat(3, minmax(0, 1fr));
       gap: 10px;
     }
 
     .scenario-button {
-      min-height: 82px;
+      min-height: 96px;
       border: 1px solid #cdd7d0;
       border-radius: 11px;
       padding: 13px;
@@ -438,8 +481,9 @@
 
     @media (max-width: 820px) {
       .hero { align-items: flex-start; flex-direction: column; }
-      .grid { grid-template-columns: 1fr; }
+      .setup-card { grid-template-columns: 1fr; }
       .summary { grid-template-columns: 1fr; }
+      .scenario-grid { grid-template-columns: repeat(2, minmax(0, 1fr)); }
       .metric { min-height: auto; border-right: 0; border-bottom: 1px solid rgba(255, 255, 255, 0.13); }
       .metric:last-child { border-bottom: 0; }
     }
@@ -481,83 +525,66 @@
       </div>
     </section>
 
-    <div class="grid">
-      <section class="panel" aria-labelledby="config-title">
-        <div class="panel-header">
-          <div>
-            <h2 id="config-title">Local test configuration</h2>
-            <p class="panel-kicker">Credentials stay in this page's memory only.</p>
-          </div>
+    <section class="panel setup-card" aria-labelledby="setup-title">
+      <div>
+        <h2 id="setup-title">Demo setup</h2>
+        <p class="panel-kicker">
+          Prepare fresh local test data, then click the checks below. The console loads
+          keys and JWTs into memory without showing raw secrets on screen.
+        </p>
+        <div class="setup-actions">
+          <button class="primary-button" id="seed-dev-data" type="button">Prepare demo data</button>
+          <button class="secondary-button" id="list-dev-data" type="button">Show safe seed summary</button>
           <span class="config-state" id="config-state">Incomplete</span>
         </div>
-        <div class="config-body">
-          <div class="field">
-            <label for="proxy-url">Proxy base URL</label>
-            <input id="proxy-url" type="url" value="http://localhost:8080" spellcheck="false">
-            <span class="field-help">Only localhost, 127.0.0.1, or ::1 is accepted.</span>
-          </div>
+        <span class="field-help" id="helper-status" aria-live="polite">
+          Click Prepare demo data before running checks.
+        </span>
+        <pre class="helper-output" id="helper-output"></pre>
+      </div>
+      <ol class="demo-steps">
+        <li>Prepare demo data.</li>
+        <li>Run Valid Request to prove allowed traffic reaches the backend.</li>
+        <li>Run the blocked cases to prove Aegis stops bad traffic.</li>
+        <li>Run Flood, then Cross-Consumer Check to prove rate-limit isolation.</li>
+      </ol>
+    </section>
 
-          <div class="field">
-            <label for="seed-output">Paste output from scripts/seed_dev_data.py</label>
-            <textarea
-              id="seed-output"
-              placeholder="Paste the four export AEGIS_... lines here"
-              autocomplete="off"
-              spellcheck="false"
-            ></textarea>
-            <button class="secondary-button" id="load-seed" type="button">Load seed values</button>
-            <span class="field-help" id="import-status" aria-live="polite">
-              Values are parsed locally and are never persisted.
-            </span>
-          </div>
+    <div class="hidden" aria-hidden="true">
+      <input id="proxy-url" type="url" value="http://localhost:8082">
+      <textarea id="seed-output"></textarea>
+      <button id="load-seed" type="button">Load seed values</button>
+      <span id="import-status"></span>
+      <select id="key-profile">
+        <option value="consumer1">Consumer 1 active</option>
+        <option value="revoked">Consumer 1 revoked</option>
+        <option value="consumer2">Consumer 2 active</option>
+      </select>
+      <input id="selected-key" type="password">
+      <span id="key-prefix"></span>
+      <input id="demo-jwt" type="password">
+    </div>
 
-          <div class="field">
-            <label for="key-profile">Seeded API key profile</label>
-            <select id="key-profile">
-              <option value="consumer1">Consumer 1 — active</option>
-              <option value="revoked">Consumer 1 — revoked</option>
-              <option value="consumer2">Consumer 2 — active</option>
-            </select>
-          </div>
-
-          <div class="field">
-            <label for="selected-key">Selected raw dev API key</label>
-            <input
-              id="selected-key"
-              type="password"
-              placeholder="Select a profile and paste its seeded key"
-              autocomplete="off"
-              spellcheck="false"
-            >
-            <span class="field-help" id="key-prefix">No key loaded</span>
-          </div>
-
-          <div class="field">
-            <label for="demo-jwt">Seeded demo JWT</label>
-            <input
-              id="demo-jwt"
-              type="password"
-              placeholder="Paste AEGIS_DEMO_JWT"
-              autocomplete="off"
-              spellcheck="false"
-            >
-            <span class="field-help">The token printed by the seed script expires in one hour.</span>
-          </div>
-        </div>
-      </section>
-
-      <section class="panel" aria-labelledby="scenarios-title">
+    <section class="panel" aria-labelledby="scenarios-title">
         <div class="panel-header">
           <div>
             <h2 id="scenarios-title">Defense scenarios</h2>
-            <p class="panel-kicker">Each result is judged against its expected proxy behavior.</p>
+            <p class="panel-kicker">Green means Aegis made the correct allow/block decision.</p>
           </div>
         </div>
         <div class="actions-body">
           <div class="scenario-grid">
             <button class="scenario-button" id="valid-request" type="button">
-              <span class="scenario-name">Valid Request</span>
-              <span class="scenario-expectation">Consumer1 should reach echo service · 200</span>
+              <span class="scenario-name">Read Allowed</span>
+              <span class="scenario-expectation">Consumer1 has echo:read · GET 200</span>
+            </button>
+            <button class="scenario-button" id="write-blocked" type="button">
+              <span class="scenario-name">Write Blocked</span>
+              <span class="scenario-expectation">Consumer1 lacks echo:write · POST 403</span>
+            </button>
+            <button class="scenario-button" id="write-allowed" type="button">
+              <span class="scenario-name">Write Allowed</span>
+              <span class="scenario-expectation">Consumer2 has echo:write · POST 200</span>
             </button>
             <button class="scenario-button" id="revoked-key" type="button">
               <span class="scenario-name">Revoked Key</span>
@@ -596,8 +623,7 @@
             consumer1 counter does not affect consumer2.
           </div>
         </div>
-      </section>
-    </div>
+    </section>
 
     <section class="panel log-panel" aria-labelledby="log-title">
       <div class="log-toolbar">
@@ -639,10 +665,15 @@
       let passedChecks = 0;
       let totalChecks = 0;
       let lastConsumer1RequestAt = 0;
+      let policyReadyAt = 0;
       let busy = false;
 
       const elements = {
         proxyUrl: document.querySelector("#proxy-url"),
+        seedDevData: document.querySelector("#seed-dev-data"),
+        listDevData: document.querySelector("#list-dev-data"),
+        helperStatus: document.querySelector("#helper-status"),
+        helperOutput: document.querySelector("#helper-output"),
         seedOutput: document.querySelector("#seed-output"),
         loadSeed: document.querySelector("#load-seed"),
         importStatus: document.querySelector("#import-status"),
@@ -723,7 +754,11 @@
       }
 
       function loadSeedValues() {
-        const parsed = parseSeedOutput(elements.seedOutput.value);
+        loadSeedText(elements.seedOutput.value, true);
+      }
+
+      function loadSeedText(text, clearManualInput = false) {
+        const parsed = parseSeedOutput(text);
         for (const [profile, value] of Object.entries(parsed.keys)) {
           profiles[profile].value = value;
         }
@@ -733,14 +768,68 @@
         elements.importStatus.textContent = loadedCount === 4
           ? "Loaded all three dev API keys and the demo JWT."
           : `Loaded ${loadedCount} of 4 values. Paste all export lines from the latest seed run.`;
-        elements.seedOutput.value = "";
+        if (clearManualInput) elements.seedOutput.value = "";
         updateConfigurationState();
+      }
+
+      function seedSummary(text) {
+        const lines = text.split(/\r?\n/);
+        const loginLines = [];
+        let capture = false;
+        for (const line of lines) {
+          if (line.trim() === "Development logins:") {
+            capture = true;
+            continue;
+          }
+          if (capture && line.trim() === "") break;
+          if (capture && !line.includes("pass:")) loginLines.push(line.trim());
+        }
+        return [
+          "Demo data is ready.",
+          "",
+          ...loginLines,
+          "",
+          "API keys and demo JWT were loaded into this page memory.",
+          "Raw secrets are hidden from the presenter view."
+        ].join("\n");
       }
 
       function setBusy(nextBusy) {
         busy = nextBusy;
         for (const button of elements.scenarioButtons) button.disabled = busy;
         elements.loadSeed.disabled = busy;
+        elements.seedDevData.disabled = busy;
+        elements.listDevData.disabled = busy;
+      }
+
+      async function runDevHelper({ url, method, runningText, successText, autoLoadSeed = false }) {
+        if (busy) return;
+        setBusy(true);
+        elements.helperStatus.textContent = runningText;
+        elements.helperOutput.textContent = "";
+        try {
+          const response = await fetch(url, { method, cache: "no-store" });
+          const result = await response.json();
+          const output = [result.stdout, result.stderr].filter(Boolean).join("\n");
+          if (!response.ok || !result.ok) {
+            elements.helperOutput.textContent = output || result.error || "No output.";
+            elements.helperStatus.textContent = `Helper failed with exit ${result.exit_code ?? response.status}.`;
+            return;
+          }
+          if (autoLoadSeed) {
+            loadSeedText(result.stdout || "", false);
+            elements.helperOutput.textContent = seedSummary(result.stdout || "");
+            policyReadyAt = Date.now() + 3_000;
+          } else {
+            elements.helperOutput.textContent = output || "No seeded data found.";
+          }
+          elements.helperStatus.textContent = successText;
+        } catch (error) {
+          elements.helperStatus.textContent = "Helper request failed. Is the console served from http://127.0.0.1:9100?";
+          elements.helperOutput.textContent = String(error);
+        } finally {
+          setBusy(false);
+        }
       }
 
       function verdictText(scenario, status, passed, expectedDescription) {
@@ -785,9 +874,11 @@
         const headers = { Accept: "application/json" };
         if (payload.apiKey) headers["X-API-Key"] = payload.apiKey;
         if (payload.jwt) headers.Authorization = `Bearer ${payload.jwt}`;
+        if (payload.method === "POST") headers["Content-Type"] = "application/json";
         const response = await fetch(`${payload.proxyBaseUrl.replace(/\/$/, "")}/api/echo`, {
-          method: "GET",
+          method: payload.method || "GET",
           headers,
+          body: payload.method === "POST" ? JSON.stringify({ poc: "write-scope" }) : undefined,
           cache: "no-store"
         });
         let body = null;
@@ -808,7 +899,7 @@
         return { status: result.proxy_status, body: result.body };
       }
 
-      async function probe({ scenario, profile, omitKey = false, malformed = false }) {
+      async function probe({ scenario, profile, omitKey = false, malformed = false, method = "GET" }) {
         if (!updateConfigurationState()) {
           appendResult({
             scenario,
@@ -830,10 +921,20 @@
           return { status: 0, body: null };
         }
         const apiKey = omitKey ? "" : malformed ? malformedKey : profiles[profile].value;
+        if (Date.now() < policyReadyAt) {
+          elements.progressWrap.classList.add("visible");
+          while (Date.now() < policyReadyAt) {
+            const seconds = Math.max(0, Math.ceil((policyReadyAt - Date.now()) / 1000));
+            elements.progressLabel.textContent = `Waiting ${seconds}s for proxy policy refresh…`;
+            await new Promise((resolve) => setTimeout(resolve, 250));
+          }
+          elements.progressWrap.classList.remove("visible");
+        }
         const payload = {
           proxyBaseUrl,
           apiKey,
-          jwt: elements.demoJwt.value.trim()
+          jwt: elements.demoJwt.value.trim(),
+          method
         };
         if (profile === "consumer1") lastConsumer1RequestAt = Date.now();
 
@@ -920,6 +1021,20 @@
       }
 
       elements.loadSeed.addEventListener("click", loadSeedValues);
+      elements.seedDevData.addEventListener("click", () => runDevHelper({
+        url: "/__aegis_seed",
+        method: "POST",
+        runningText: "Running seed_dev_data.py and rotating demo keys…",
+        successText: "Seed data refreshed and loaded into the test controls.",
+        autoLoadSeed: true
+      }));
+      elements.listDevData.addEventListener("click", () => runDevHelper({
+        url: "/__aegis_list",
+        method: "GET",
+        runningText: "Reading sanitized seeded data summary…",
+        successText: "Seeded data summary loaded.",
+        autoLoadSeed: false
+      }));
       elements.keyProfile.addEventListener("change", () => {
         saveSelectedKey();
         selectedProfile = elements.keyProfile.value;
@@ -931,10 +1046,27 @@
       elements.proxyUrl.addEventListener("input", updateConfigurationState);
 
       document.querySelector("#valid-request").addEventListener("click", () => runSingle({
-        scenario: "Valid Request",
+        scenario: "Read Allowed",
         profile: "consumer1",
+        method: "GET",
         expectedStatuses: [200],
-        expectedDescription: "HTTP 200 from the echo service",
+        expectedDescription: "HTTP 200 for echo:read",
+        requireEcho: true
+      }));
+      document.querySelector("#write-blocked").addEventListener("click", () => runSingle({
+        scenario: "Write Blocked",
+        profile: "consumer1",
+        method: "POST",
+        expectedStatuses: [403],
+        expectedDescription: "HTTP 403 because echo:write is missing",
+        requireEcho: false
+      }));
+      document.querySelector("#write-allowed").addEventListener("click", () => runSingle({
+        scenario: "Write Allowed",
+        profile: "consumer2",
+        method: "POST",
+        expectedStatuses: [200],
+        expectedDescription: "HTTP 200 for echo:write",
         requireEcho: true
       }));
       document.querySelector("#revoked-key").addEventListener("click", () => runSingle({

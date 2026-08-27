@@ -1,0 +1,38 @@
+%%{init: {"theme": "neutral", "flowchart": {"curve": "basis"}, "themeVariables": {"fontFamily": "Arial", "primaryColor": "#ffffff", "primaryTextColor": "#000000", "primaryBorderColor": "#000000", "lineColor": "#000000", "secondaryColor": "#eeeeee"}}}%%
+flowchart LR
+    subgraph Capture["Reverse Proxy outcome capture"]
+        direction TB
+        Outcome["Terminal outcome<br/>forwarded · blocked · invalid · threat · limited"]
+        Sanitise["Build sanitised SecurityEvent<br/>type, IP, IDs, method, path, status"]
+        Queue{"Bounded non-blocking<br/>event queue"}
+        Outcome --> Sanitise --> Queue
+    end
+
+    subgraph Ingest["Authenticated Control Plane ingestion"]
+        direction TB
+        Reporter["Asynchronous reporter"]
+        Internal["Internal event endpoint<br/>shared-token authentication"]
+        Validate["Pydantic validation<br/>+ canonical IP check"]
+        DB[("PostgreSQL<br/>security_events")]
+        Reporter --> Internal --> Validate --> DB
+    end
+    Queue -->|"capacity available"| Reporter
+    Queue -->|"queue full"| Drop["Drop analytics event;<br/>do not block protected traffic"]
+
+    subgraph Consumers["Persisted-event consumers"]
+        direction TB
+        Auto{"Violation threshold<br/>reached?"}
+        Block[("One active automatic<br/>IP block")]
+        Proxy["Reverse Proxy<br/>exact-IP enforcement"]
+        Analytics["Role-protected<br/>analytics service"]
+        Dashboard["Dashboard summary<br/>and event views"]
+        Auto -->|"yes"| Block -->|"next policy snapshot"| Proxy
+        Analytics --> Dashboard
+    end
+    DB --> Auto
+    DB --> Analytics
+
+    classDef node fill:#fff,stroke:#000,stroke-width:2px,color:#000;
+    classDef store fill:#ededed,stroke:#000,stroke-width:2px,color:#000;
+    class Outcome,Sanitise,Queue,Reporter,Internal,Validate,Auto,Analytics,Dashboard,Drop,Proxy node;
+    class DB,Block store;

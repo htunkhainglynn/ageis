@@ -1,0 +1,46 @@
+%%{init: {"theme": "neutral", "flowchart": {"curve": "basis"}, "themeVariables": {"fontFamily": "Arial", "primaryColor": "#ffffff", "primaryTextColor": "#000000", "primaryBorderColor": "#000000", "lineColor": "#000000", "secondaryColor": "#eeeeee"}}}%%
+flowchart LR
+    subgraph Source["Control Plane policy source"]
+        direction TB
+        DB[("PostgreSQL<br/>active policies")]
+        Loader["Snapshot loader<br/>JWT · limits · IPs · threats · routes"]
+        REST["Protected internal<br/>REST snapshot"]
+        GRPC["Authenticated gRPC<br/>server stream"]
+        DB --> Loader
+        Loader --> REST
+        Loader --> GRPC
+    end
+
+    subgraph Consume["Reverse Proxy policy consumption"]
+        direction TB
+        Bootstrap["REST policy client"]
+        Subscriber["gRPC subscriber"]
+        Provider["StreamingPolicyProvider<br/>read/write lock + cloned snapshots"]
+        Handler["Request handler"]
+        Bootstrap --> Provider
+        Subscriber -->|"valid JSON only"| Provider
+        Provider --> Handler
+    end
+
+    REST -->|"bootstrap / pre-stream fallback"| Bootstrap
+    GRPC -->|"x-aegis-internal-token"| Subscriber
+
+    subgraph Recovery["Stream interruption behaviour"]
+        direction TB
+        StreamDown{"Valid snapshot<br/>already received?"}
+        Keep["Continue enforcing<br/>last valid snapshot"]
+        Fallback["Use authenticated<br/>REST fallback"]
+        Reconnect["Wait configured delay<br/>and reconnect"]
+        StreamDown -->|"yes"| Keep
+        StreamDown -->|"no"| Fallback
+        StreamDown --> Reconnect
+    end
+    Subscriber -->|"stream interrupted"| StreamDown
+    Keep --> Provider
+    Fallback --> Bootstrap
+    Reconnect --> GRPC
+
+    classDef node fill:#fff,stroke:#000,stroke-width:2px,color:#000;
+    classDef store fill:#ededed,stroke:#000,stroke-width:2px,color:#000;
+    class DB store;
+    class Loader,REST,GRPC,Bootstrap,Subscriber,Provider,Handler,Keep,Fallback,StreamDown,Reconnect node;

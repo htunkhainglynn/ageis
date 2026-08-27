@@ -1,0 +1,20 @@
+Building and starting isolated Aegis stack...
+[PASS] Health: Control Plane 200; PostgreSQL=up; Redis=up
+[PASS] Dashboard: login page returned 200 with expected content
+[PASS] Identity: valid admin login returned 200 and an access token
+[PASS] API key: create returned 201 with scope upstream:read and one-time secret
+[PASS] API key: a second key was created and revoked through the Control Plane
+[PASS] JWT policy: HS256 configuration created and activated
+[PASS] Threat policy: active request-target rule created
+[PASS] Policy distribution: authenticated gRPC snapshot enabled a 200 upstream response
+[PASS] IP enforcement: exact direct-peer block returned 403 IP_BLOCKED
+[PASS] Threat enforcement: matching request returned 403 THREAT_DETECTED
+[PASS] Rate policy: global fixed-window rule (2 requests / 60 seconds) created
+[PASS] Authentication: invalid API key returned 401
+[PASS] Authentication: invalid JWT returned 401
+[PASS] Authorisation: revoked API key returned 403
+[PASS] Rate enforcement: request statuses were 200, 200, 429 RATE_LIMIT_EXCEEDED
+[PASS] Analytics: forwarded, blocked, threat and rate-limit events were aggregated
+[PASS] Automatic protection: repeated violations produced 403 IP_BLOCKED
+[PASS] Persistence: the automatic active IP block appears in Control Plane data
+E2E passed: Control Plane -> gRPC policy sync -> reverse proxy -> upstream, including auth, threat/manual/automatic IP blocking, Redis rate limiting, and analytics.

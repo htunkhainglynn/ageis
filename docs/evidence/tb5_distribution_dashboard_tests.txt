@@ -1,0 +1,94 @@
+......                                                                   [100%]
+6 passed in 2.83s
+=== RUN   TestAsyncEventReporterDeliversSanitizedEventAndFlushes
+=== PAUSE TestAsyncEventReporterDeliversSanitizedEventAndFlushes
+=== RUN   TestGRPCPolicySubscriberUpdatesStreamingProvider
+--- PASS: TestGRPCPolicySubscriberUpdatesStreamingProvider (0.01s)
+=== RUN   TestStreamingPolicyProviderFallsBackBeforeFirstStreamUpdate
+--- PASS: TestStreamingPolicyProviderFallsBackBeforeFirstStreamUpdate (0.00s)
+=== RUN   TestCachedPolicyProviderCachesAndClones
+=== PAUSE TestCachedPolicyProviderCachesAndClones
+=== RUN   TestCachedPolicyProviderUsesStalePolicyDuringOutage
+=== PAUSE TestCachedPolicyProviderUsesStalePolicyDuringOutage
+=== RUN   TestCachedPolicyProviderFailsWithoutInitialPolicy
+=== PAUSE TestCachedPolicyProviderFailsWithoutInitialPolicy
+=== CONT  TestAsyncEventReporterDeliversSanitizedEventAndFlushes
+=== CONT  TestCachedPolicyProviderUsesStalePolicyDuringOutage
+--- PASS: TestCachedPolicyProviderUsesStalePolicyDuringOutage (0.00s)
+=== CONT  TestCachedPolicyProviderFailsWithoutInitialPolicy
+--- PASS: TestCachedPolicyProviderFailsWithoutInitialPolicy (0.00s)
+=== CONT  TestCachedPolicyProviderCachesAndClones
+--- PASS: TestCachedPolicyProviderCachesAndClones (0.00s)
+--- PASS: TestAsyncEventReporterDeliversSanitizedEventAndFlushes (0.00s)
+PASS
+ok  	github.com/htunkhainglynn/aegis/reverse-proxy/internal/controlplane	0.630s
+
+> aegis-dashboard@0.1.0 test
+> npm run build && node --test tests/rendered-html.test.mjs --run
+
+
+> aegis-dashboard@0.1.0 build
+> WRANGLER_LOG_PATH=.wrangler/wrangler.log vinext build
+
+
+  vinext build  (Vite 8.0.13)
+
+[1/5] analyze client references...
+[2Ktransforming...✓ 144 modules transformed.
+rendering chunks...
+✓ built in 356ms
+[2/5] analyze server references...
+[2Ktransforming...✓ 72 modules transformed.
+rendering chunks...
+✓ built in 59ms
+[3/5] build rsc environment...
+[2Ktransforming...✓ 150 modules transformed.
+rendering chunks...
+computing gzip size...
+✓ built in 218ms
+[4/5] build client environment...
+[2Ktransforming...✓ 79 modules transformed.
+rendering chunks...
+computing gzip size...
+✓ built in 109ms
+[5/5] build ssr environment...
+[2Ktransforming...✓ 78 modules transformed.
+rendering chunks...
+computing gzip size...
+✓ built in 159ms
+[0m
+  Route (app)
+  ┌ ? /
+  ├ ? /analytics
+  ├ ? /api-keys
+  ├ ? /dashboard
+  ├ ? /ip-blocks
+  ├ ? /jwt-config
+  ├ ? /login
+  ├ ? /rate-limits
+  ├ ? /system
+  ├ ? /threat-rules
+  └ ? /users
+
+  ? Unknown
+
+  ? Some routes could not be classified. vinext currently uses static analysis
+    and cannot detect dynamic API usage (headers(), cookies(), etc.) at build time.
+    Automatic classification will be improved in a future release.
+
+  Build complete. Run `vinext start` to start the production server.
+
+✔ server-renders the Aegis login experience (76.3905ms)
+✔ role-gated navigation matches the permission matrix (1.418ms)
+✔ authentication state stays in React memory (0.480583ms)
+✔ IP block management remains Admin-only in the dashboard (0.421042ms)
+✔ threat rule management remains Admin-only in the dashboard (0.42525ms)
+✔ analytics uses live role-protected Control Plane data (0.417875ms)
+ℹ tests 6
+ℹ suites 0
+ℹ pass 6
+ℹ fail 0
+ℹ cancelled 0
+ℹ skipped 0
+ℹ todo 0
+ℹ duration_ms 164.856875

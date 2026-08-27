@@ -1,0 +1,38 @@
+%%{init: {"theme": "neutral", "flowchart": {"curve": "basis", "htmlLabels": true}, "themeVariables": {"fontFamily": "Arial", "primaryColor": "#ffffff", "primaryTextColor": "#000000", "primaryBorderColor": "#000000", "lineColor": "#000000", "secondaryColor": "#f1f1f1", "tertiaryColor": "#ffffff"}}}%%
+flowchart LR
+    Client["API client"]
+    Operator["Administrator / Viewer / API Consumer"]
+
+    subgraph UI["Operator interface"]
+        Dashboard["React dashboard<br/>Vinext / Vite"]
+        Console["Loopback-only attack / defence console"]
+    end
+
+    subgraph Management["Management plane"]
+        CP["FastAPI Control Plane<br/>REST :8000 · gRPC :50051"]
+        PG[("PostgreSQL<br/>durable policy, identity and events")]
+        Redis[("Redis<br/>token revocation")]
+    end
+
+    subgraph Data["Data plane"]
+        Proxy["Go Reverse Proxy<br/>net/http + httputil"]
+        Rate[("Redis<br/>atomic distributed rate state")]
+        Upstream["Protected upstream / POC echo service"]
+    end
+
+    Operator -->|"HTTPS browser session"| Dashboard
+    Dashboard -->|"Versioned REST + user JWT"| CP
+    Console -->|"Controlled requests"| Proxy
+    Client -->|"X-API-Key + Bearer JWT"| Proxy
+    CP -->|"SQLAlchemy / Alembic"| PG
+    CP -->|"revoked token state"| Redis
+    CP -->|"authenticated REST bootstrap"| Proxy
+    CP -->|"authenticated gRPC policy snapshots"| Proxy
+    Proxy -->|"API-key validation + sanitised events"| CP
+    Proxy -->|"atomic Lua scripts"| Rate
+    Proxy -->|"allowed request; Aegis credentials removed"| Upstream
+
+    classDef component fill:#fff,stroke:#000,stroke-width:2px,color:#000;
+    classDef store fill:#ededed,stroke:#000,stroke-width:2px,color:#000;
+    class Client,Operator,Dashboard,Console,CP,Proxy,Upstream component;
+    class PG,Redis,Rate store;

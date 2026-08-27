@@ -1,0 +1,34 @@
+%%{init: {"theme": "neutral", "themeVariables": {"fontFamily": "Arial", "primaryColor": "#ffffff", "primaryTextColor": "#000000", "primaryBorderColor": "#000000", "lineColor": "#000000", "actorBkg": "#ffffff", "actorBorder": "#000000", "actorTextColor": "#000000", "signalColor": "#000000", "signalTextColor": "#000000"}}}%%
+sequenceDiagram
+    autonumber
+    actor A as Dashboard / API caller
+    participant F as FastAPI router
+    participant P as Pydantic request schema
+    participant D as Auth + RBAC dependencies
+    participant S as Domain service
+    participant R as Repository
+    participant DB as PostgreSQL
+
+    A->>F: JSON body + Bearer access token
+    F->>P: Parse types, required fields and formats
+    alt Shape or field rule invalid
+        P-->>A: 422 validation error and no service call
+    else Schema valid
+        F->>D: Authenticate token and require role
+        alt Unauthenticated or forbidden role
+            D-->>A: 401 or 403 and no persistence
+        else Authorised
+            F->>S: Validated model + current user
+            S->>S: Enforce lifecycle, ownership and uniqueness rules
+            alt Domain rule violated
+                S-->>A: 400 / 403 / 404 / 409 structured error
+            else Domain rule valid
+                S->>R: Create or update entity
+                R->>DB: Parameterised SQLAlchemy transaction
+                DB-->>R: Persisted row
+                R-->>S: Domain model
+                S-->>F: Safe response model
+                F-->>A: 200 / 201 response envelope
+            end
+        end
+    end

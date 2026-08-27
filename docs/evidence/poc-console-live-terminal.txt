@@ -1,0 +1,16 @@
+^DAegis Attack / Defense Console — live local evidence
+Seeded fresh development-only demo data: OK
+Read Allowed (consumer 1 GET): HTTP 200 — FORWARDED
+Write Blocked (consumer 1 POST): HTTP 403 — INSUFFICIENT_SCOPE
+Write Allowed (consumer 2 POST): HTTP 200 — FORWARDED
+Revoked Key: HTTP 403 — API_KEY_REVOKED
+No API Key: HTTP 401 — API_KEY_MISSING
+Malformed Key: HTTP 401 — API_KEY_INVALID
+Waiting for a clean 10-second consumer 1 rate window…
+Flood request 1: HTTP 200 — FORWARDED
+Flood request 2: HTTP 200 — FORWARDED
+Flood request 3: HTTP 200 — FORWARDED
+Flood request 4: HTTP 429 — RATE_LIMIT_EXCEEDED
+Flood request 5: HTTP 429 — RATE_LIMIT_EXCEEDED
+Cross-Consumer Check: HTTP 200 — FORWARDED
+Live console relay verification complete; no raw credential values recorded.

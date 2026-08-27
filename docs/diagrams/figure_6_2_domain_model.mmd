@@ -1,0 +1,87 @@
+%%{init: {"theme": "neutral", "themeVariables": {"fontFamily": "Arial", "primaryColor": "#ffffff", "primaryTextColor": "#000000", "primaryBorderColor": "#000000", "lineColor": "#000000"}}}%%
+erDiagram
+    USER ||--o{ API_KEY : owns
+    USER ||--o{ RATE_LIMIT_RULE : creates
+    USER ||--o{ JWT_CONFIG : creates
+    USER ||--o{ THREAT_RULE : creates
+    USER ||--o{ IP_BLOCK : creates_manual
+    USER ||--o{ ROUTE_PERMISSION : creates
+    API_KEY ||--o{ SECURITY_EVENT : identifies
+
+    USER {
+        int id PK
+        string email UK
+        string hashed_password
+        string role
+        boolean is_active
+        datetime created_at
+        datetime updated_at
+    }
+    API_KEY {
+        int id PK
+        int owner_id FK
+        string key_hash
+        string key_prefix
+        json scopes
+        string status
+        datetime expires_at
+        datetime last_used_at
+    }
+    RATE_LIMIT_RULE {
+        int id PK
+        int created_by FK
+        string scope_type
+        string scope_value
+        string algorithm
+        int limit_count
+        int window_seconds
+        int burst_allowance
+        string status
+    }
+    JWT_CONFIG {
+        int id PK
+        int created_by FK
+        string algorithm
+        text encrypted_signing_key
+        text public_key
+        string issuer
+        string audience
+        int access_ttl_seconds
+        int refresh_ttl_seconds
+        string status
+    }
+    THREAT_RULE {
+        int id PK
+        int created_by FK
+        string name
+        text pattern
+        string severity
+        string status
+    }
+    IP_BLOCK {
+        int id PK
+        int created_by FK "nullable for automatic blocks"
+        string ip_address
+        string reason
+        string source
+        string status
+    }
+    ROUTE_PERMISSION {
+        int id PK
+        int created_by FK
+        string method
+        string path_pattern
+        string required_scope
+        string status
+    }
+    SECURITY_EVENT {
+        int id PK
+        int api_key_id FK "nullable"
+        string event_type
+        string source_ip
+        int rule_id
+        string method
+        string path
+        int status_code
+        datetime created_at
+    }

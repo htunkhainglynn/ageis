@@ -12,7 +12,7 @@ from typing import Any
 
 
 class EchoHandler(BaseHTTPRequestHandler):
-    """Serve one JSON echo endpoint without external dependencies."""
+    """Serve tiny JSON endpoints without external dependencies."""
 
     server_version = "AegisEchoPOC/1.0"
 
@@ -24,13 +24,13 @@ class EchoHandler(BaseHTTPRequestHandler):
         self.end_headers()
         self.wfile.write(body)
 
-    def do_GET(self) -> None:  # noqa: N802 - BaseHTTPRequestHandler API
-        if self.path != "/api/echo":
+    def _handle_echo(self, resource: str) -> None:
+        if self.path not in {"/api/echo", "/api/orders"}:
             self._write_json(
                 HTTPStatus.NOT_FOUND,
                 {
                     "status": "error",
-                    "message": "Only GET /api/echo is available.",
+                    "message": "Only GET/POST /api/echo or GET /api/orders is available.",
                 },
             )
             return
@@ -38,11 +38,20 @@ class EchoHandler(BaseHTTPRequestHandler):
         self._write_json(
             HTTPStatus.OK,
             {
+                "resource": resource,
                 "status": "ok",
+                "method": self.command,
                 "timestamp": datetime.now(timezone.utc).isoformat(),
                 "headers": dict(self.headers.items()),
             },
         )
+
+    def do_GET(self) -> None:  # noqa: N802 - BaseHTTPRequestHandler API
+        resource = "orders" if self.path == "/api/orders" else "echo"
+        self._handle_echo(resource)
+
+    def do_POST(self) -> None:  # noqa: N802 - BaseHTTPRequestHandler API
+        self._handle_echo("echo")
 
     def log_message(self, message: str, *args: object) -> None:
         """Keep standard request logs while never logging request headers."""

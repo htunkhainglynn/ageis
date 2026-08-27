@@ -1,0 +1,49 @@
+%%{init: {"theme": "neutral", "flowchart": {"curve": "basis"}, "themeVariables": {"fontFamily": "Arial", "primaryColor": "#ffffff", "primaryTextColor": "#000000", "primaryBorderColor": "#000000", "lineColor": "#000000", "secondaryColor": "#eeeeee"}}}%%
+flowchart LR
+    Start["Authenticated and authorised request"]
+    subgraph Precedence["Most-specific active rule wins"]
+        direction TB
+        Key{"API-key rule<br/>for key ID?"}
+        Route{"Route rule<br/>for request path?"}
+        Global{"Global rule?"}
+        Selected["Selected rule"]
+        Unlimited["No rule: allow without<br/>rate metadata"]
+        Key -->|"yes"| Selected
+        Key -->|"no"| Route
+        Route -->|"yes"| Selected
+        Route -->|"no"| Global
+        Global -->|"yes"| Selected
+        Global -->|"no"| Unlimited
+    end
+    Start --> Key
+
+    subgraph Algorithms["Configured Redis algorithm"]
+        direction TB
+        Algorithm{"algorithm"}
+        Fixed["fixed_window<br/>counter + expiry"]
+        Sliding["sliding_window<br/>sorted-set time window"]
+        Bucket["token_bucket<br/>balance + refill time"]
+        Algorithm --> Fixed
+        Algorithm --> Sliding
+        Algorithm --> Bucket
+    end
+    Selected --> Algorithm
+
+    subgraph Decision["Atomic decision and response"]
+        direction TB
+        Lua["One atomic Redis<br/>Lua decision"]
+        Allowed{"Allowed?"}
+        Forward["Set X-RateLimit-*<br/>headers and continue"]
+        Deny["429 RATE_LIMIT_EXCEEDED<br/>Retry-After + rate headers"]
+        Lua --> Allowed
+        Allowed -->|"yes"| Forward
+        Allowed -->|"no"| Deny
+    end
+    Fixed --> Lua
+    Sliding --> Lua
+    Bucket --> Lua
+
+    classDef node fill:#fff,stroke:#000,stroke-width:2px,color:#000;
+    classDef store fill:#ededed,stroke:#000,stroke-width:2px,color:#000;
+    class Start,Key,Route,Global,Selected,Unlimited,Algorithm,Allowed,Forward,Deny node;
+    class Fixed,Sliding,Bucket,Lua store;

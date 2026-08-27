@@ -16,3 +16,7 @@
 **/.coverage
 **/.coverage.*
 !**/.coveragerc
+
+# Generated report QA renders and transient Word lock files.
+docs/report/*/
+docs/report/~$*

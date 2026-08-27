@@ -5,6 +5,7 @@ from __future__ import annotations
 
 import json
 import os
+import subprocess
 from http import HTTPStatus
 from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
 from pathlib import Path
@@ -14,6 +15,8 @@ from urllib.parse import urlsplit, urlunsplit
 from urllib.request import HTTPRedirectHandler, Request, build_opener
 
 INDEX_PATH = Path(__file__).with_name("index.html")
+REPO_ROOT = INDEX_PATH.parents[2]
+PYTHON = REPO_ROOT / "aegis-backend" / ".venv" / "bin" / "python"
 MAX_REQUEST_BYTES = 32_768
 MAX_RESPONSE_BYTES = 65_536
 
@@ -58,17 +61,24 @@ def run_probe(
     proxy_base_url: str,
     api_key: str,
     jwt_token: str,
+    method: str = "GET",
     timeout_seconds: float = 5,
 ) -> dict[str, Any]:
     """Send the console's one permitted request to the local Reverse Proxy."""
     base_url = normalize_loopback_proxy_url(proxy_base_url)
+    method = method.upper()
+    if method not in {"GET", "POST"}:
+        raise ValueError("Probe method must be GET or POST.")
     headers = {"Accept": "application/json", "X-POC-Console": "attack-defense"}
     if api_key:
         headers["X-API-Key"] = api_key
     if jwt_token:
         headers["Authorization"] = f"Bearer {jwt_token}"
+    data = b'{"poc":"write-scope"}' if method == "POST" else None
+    if data is not None:
+        headers["Content-Type"] = "application/json"
 
-    request = Request(f"{base_url}/api/echo", headers=headers, method="GET")
+    request = Request(f"{base_url}/api/echo", data=data, headers=headers, method=method)
     opener = build_opener(NoRedirectHandler())
     status = 0
     response_headers: dict[str, str] = {}
@@ -104,6 +114,54 @@ def run_probe(
     }
 
 
+def run_dev_script(script_name: str) -> dict[str, Any]:
+    """Run one approved dev-only helper script with the current local env."""
+    if script_name not in {"seed_dev_data.py", "list_dev_data.py"}:
+        raise ValueError("Unsupported dev helper script.")
+    python = PYTHON if PYTHON.exists() else Path("python3")
+    env = os.environ.copy()
+    env.setdefault("APP_ENV", "development")
+    env.setdefault("ENVIRONMENT", "development")
+    if env.get("APP_ENV") != "development" or env.get("ENVIRONMENT") != "development":
+        raise ValueError("Dev helper scripts require APP_ENV=development and ENVIRONMENT=development.")
+
+    result = subprocess.run(
+        [str(python), str(REPO_ROOT / "scripts" / script_name)],
+        cwd=REPO_ROOT,
+        env=env,
+        check=False,
+        capture_output=True,
+        text=True,
+        timeout=30,
+    )
+    stderr = filter_helper_stderr(result.stderr)
+    return {
+        "ok": result.returncode == 0,
+        "exit_code": result.returncode,
+        "stdout": result.stdout,
+        "stderr": stderr,
+    }
+
+
+def filter_helper_stderr(stderr: str) -> str:
+    """Hide noisy passlib/bcrypt compatibility chatter from presenter output."""
+    if "error reading bcrypt version" not in stderr:
+        return stderr
+    lines = stderr.splitlines()
+    filtered: list[str] = []
+    skipping = False
+    for line in lines:
+        if "(trapped) error reading bcrypt version" in line:
+            skipping = True
+            continue
+        if skipping and line.startswith("AttributeError:"):
+            skipping = False
+            continue
+        if not skipping:
+            filtered.append(line)
+    return "\n".join(filtered).strip()
+
+
 class ConsoleHandler(BaseHTTPRequestHandler):
     """Serve only the console page and its constrained probe endpoint."""
 
@@ -119,6 +177,15 @@ class ConsoleHandler(BaseHTTPRequestHandler):
         self.wfile.write(body)
 
     def do_GET(self) -> None:  # noqa: N802 - BaseHTTPRequestHandler API
+        if self.path == "/__aegis_list":
+            try:
+                result = run_dev_script("list_dev_data.py")
+            except (ValueError, subprocess.TimeoutExpired) as exc:
+                self._write_json(HTTPStatus.BAD_REQUEST, {"ok": False, "error": str(exc)})
+                return
+            self._write_json(HTTPStatus.OK if result["ok"] else HTTPStatus.BAD_GATEWAY, result)
+            return
+
         if self.path not in {"/", "/index.html"}:
             self._write_json(HTTPStatus.NOT_FOUND, {"error": "Not found."})
             return
@@ -133,6 +200,15 @@ class ConsoleHandler(BaseHTTPRequestHandler):
         self.wfile.write(body)
 
     def do_POST(self) -> None:  # noqa: N802 - BaseHTTPRequestHandler API
+        if self.path == "/__aegis_seed":
+            try:
+                result = run_dev_script("seed_dev_data.py")
+            except (ValueError, subprocess.TimeoutExpired) as exc:
+                self._write_json(HTTPStatus.BAD_REQUEST, {"ok": False, "error": str(exc)})
+                return
+            self._write_json(HTTPStatus.OK if result["ok"] else HTTPStatus.BAD_GATEWAY, result)
+            return
+
         if self.path != "/__aegis_probe":
             self._write_json(HTTPStatus.NOT_FOUND, {"error": "Not found."})
             return
@@ -152,6 +228,7 @@ class ConsoleHandler(BaseHTTPRequestHandler):
                 proxy_base_url=str(payload.get("proxyBaseUrl", "")),
                 api_key=str(payload.get("apiKey", "")),
                 jwt_token=str(payload.get("jwt", "")),
+                method=str(payload.get("method", "GET")),
             )
         except (json.JSONDecodeError, ValueError) as exc:
             self._write_json(HTTPStatus.BAD_REQUEST, {"error": str(exc)})

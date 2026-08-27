@@ -1,0 +1,54 @@
+=== RUN   TestHasScopeRequiresExactScope
+=== PAUSE TestHasScopeRequiresExactScope
+=== RUN   TestHandlerEnforcesBackendRoutePermissionPolicy
+=== PAUSE TestHandlerEnforcesBackendRoutePermissionPolicy
+=== RUN   TestAPIKeyValidationAndForwardingIntegration
+=== PAUSE TestAPIKeyValidationAndForwardingIntegration
+=== CONT  TestHasScopeRequiresExactScope
+=== CONT  TestAPIKeyValidationAndForwardingIntegration
+=== RUN   TestHasScopeRequiresExactScope/specific_match
+=== CONT  TestHandlerEnforcesBackendRoutePermissionPolicy
+=== RUN   TestAPIKeyValidationAndForwardingIntegration/valid_key_is_cached_and_forwarded
+=== PAUSE TestHasScopeRequiresExactScope/specific_match
+=== PAUSE TestAPIKeyValidationAndForwardingIntegration/valid_key_is_cached_and_forwarded
+=== RUN   TestHasScopeRequiresExactScope/resource_wildcard_is_not_implicit
+=== PAUSE TestHasScopeRequiresExactScope/resource_wildcard_is_not_implicit
+=== RUN   TestHasScopeRequiresExactScope/global_wildcard_is_not_implicit
+=== PAUSE TestHasScopeRequiresExactScope/global_wildcard_is_not_implicit
+=== RUN   TestAPIKeyValidationAndForwardingIntegration/revoked_key_is_negatively_cached
+=== PAUSE TestAPIKeyValidationAndForwardingIntegration/revoked_key_is_negatively_cached
+=== RUN   TestAPIKeyValidationAndForwardingIntegration/Control_Plane_failures_are_not_cached
+=== PAUSE TestAPIKeyValidationAndForwardingIntegration/Control_Plane_failures_are_not_cached
+=== RUN   TestHasScopeRequiresExactScope/missing_write
+=== PAUSE TestHasScopeRequiresExactScope/missing_write
+=== CONT  TestHasScopeRequiresExactScope/specific_match
+=== RUN   TestAPIKeyValidationAndForwardingIntegration/missing_key_is_rejected_locally
+=== CONT  TestHasScopeRequiresExactScope/global_wildcard_is_not_implicit
+=== PAUSE TestAPIKeyValidationAndForwardingIntegration/missing_key_is_rejected_locally
+=== CONT  TestHasScopeRequiresExactScope/missing_write
+=== CONT  TestAPIKeyValidationAndForwardingIntegration/missing_key_is_rejected_locally
+=== CONT  TestHasScopeRequiresExactScope/resource_wildcard_is_not_implicit
+--- PASS: TestHasScopeRequiresExactScope (0.00s)
+    --- PASS: TestHasScopeRequiresExactScope/specific_match (0.00s)
+    --- PASS: TestHasScopeRequiresExactScope/global_wildcard_is_not_implicit (0.00s)
+    --- PASS: TestHasScopeRequiresExactScope/missing_write (0.00s)
+    --- PASS: TestHasScopeRequiresExactScope/resource_wildcard_is_not_implicit (0.00s)
+=== CONT  TestAPIKeyValidationAndForwardingIntegration/valid_key_is_cached_and_forwarded
+=== CONT  TestAPIKeyValidationAndForwardingIntegration/Control_Plane_failures_are_not_cached
+=== CONT  TestAPIKeyValidationAndForwardingIntegration/revoked_key_is_negatively_cached
+=== RUN   TestHandlerEnforcesBackendRoutePermissionPolicy/matching_scope_allowed
+=== RUN   TestHandlerEnforcesBackendRoutePermissionPolicy/missing_scope_denied
+=== RUN   TestHandlerEnforcesBackendRoutePermissionPolicy/method_mismatch_allowed_by_default
+=== RUN   TestHandlerEnforcesBackendRoutePermissionPolicy/path_mismatch_allowed_by_default
+--- PASS: TestAPIKeyValidationAndForwardingIntegration (0.00s)
+    --- PASS: TestAPIKeyValidationAndForwardingIntegration/missing_key_is_rejected_locally (0.00s)
+    --- PASS: TestAPIKeyValidationAndForwardingIntegration/revoked_key_is_negatively_cached (0.00s)
+    --- PASS: TestAPIKeyValidationAndForwardingIntegration/Control_Plane_failures_are_not_cached (0.00s)
+    --- PASS: TestAPIKeyValidationAndForwardingIntegration/valid_key_is_cached_and_forwarded (0.00s)
+--- PASS: TestHandlerEnforcesBackendRoutePermissionPolicy (0.00s)
+    --- PASS: TestHandlerEnforcesBackendRoutePermissionPolicy/matching_scope_allowed (0.00s)
+    --- PASS: TestHandlerEnforcesBackendRoutePermissionPolicy/missing_scope_denied (0.00s)
+    --- PASS: TestHandlerEnforcesBackendRoutePermissionPolicy/method_mismatch_allowed_by_default (0.00s)
+    --- PASS: TestHandlerEnforcesBackendRoutePermissionPolicy/path_mismatch_allowed_by_default (0.00s)
+PASS
+ok  	github.com/htunkhainglynn/aegis/reverse-proxy/internal/proxy	0.637s

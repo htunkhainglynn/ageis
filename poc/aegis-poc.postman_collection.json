@@ -1,0 +1,631 @@
+{
+  "info": {
+    "name": "Aegis Reverse Proxy POC",
+    "description": "Local-only Postman collection for the Aegis POC echo service, attack-console helper endpoints, and Reverse Proxy read/write scope checks.",
+    "schema": "https://schema.getpostman.com/json/collection/v2.1.0/collection.json"
+  },
+  "variable": [
+    {
+      "key": "proxy_base_url",
+      "value": "http://localhost:8082"
+    },
+    {
+      "key": "echo_base_url",
+      "value": "http://localhost:9000"
+    },
+    {
+      "key": "attack_console_url",
+      "value": "http://127.0.0.1:9100"
+    },
+    {
+      "key": "consumer1_key",
+      "value": ""
+    },
+    {
+      "key": "consumer1_revoked_key",
+      "value": ""
+    },
+    {
+      "key": "consumer2_key",
+      "value": ""
+    },
+    {
+      "key": "demo_jwt",
+      "value": ""
+    }
+  ],
+  "item": [
+    {
+      "name": "0. Prepare Demo Data",
+      "item": [
+        {
+          "name": "Seed / Rotate Dev Data",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('seed helper succeeded', function () {",
+                  "  pm.response.to.have.status(200);",
+                  "  pm.expect(pm.response.json().ok).to.eql(true);",
+                  "});",
+                  "",
+                  "const stdout = pm.response.json().stdout || '';",
+                  "function capture(name) {",
+                  "  const match = stdout.match(new RegExp(\"export \" + name + \"='([^']+)'\");",
+                  "  pm.expect(match, name + ' was printed').to.not.equal(null);",
+                  "  return match[1];",
+                  "}",
+                  "pm.collectionVariables.set('consumer1_key', capture('AEGIS_CONSUMER1_KEY'));",
+                  "pm.collectionVariables.set('consumer1_revoked_key', capture('AEGIS_CONSUMER1_REVOKED_KEY'));",
+                  "pm.collectionVariables.set('consumer2_key', capture('AEGIS_CONSUMER2_KEY'));",
+                  "pm.collectionVariables.set('demo_jwt', capture('AEGIS_DEMO_JWT'));"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "POST",
+            "header": [],
+            "url": {
+              "raw": "{{attack_console_url}}/__aegis_seed",
+              "host": [
+                "{{attack_console_url}}"
+              ],
+              "path": [
+                "__aegis_seed"
+              ]
+            },
+            "description": "Runs scripts/seed_dev_data.py through the localhost-only POC helper and stores fresh API keys/JWT as collection variables."
+          }
+        },
+        {
+          "name": "List Safe Seed Summary",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('list helper succeeded', function () {",
+                  "  pm.response.to.have.status(200);",
+                  "  pm.expect(pm.response.json().ok).to.eql(true);",
+                  "});",
+                  "pm.test('safe summary does not expose raw secrets', function () {",
+                  "  const stdout = pm.response.json().stdout || '';",
+                  "  pm.expect(stdout).to.include('USERS');",
+                  "  pm.expect(stdout).to.not.include(pm.collectionVariables.get('consumer1_key'));",
+                  "  pm.expect(stdout).to.not.include(pm.collectionVariables.get('demo_jwt'));",
+                  "});"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{attack_console_url}}/__aegis_list",
+              "host": [
+                "{{attack_console_url}}"
+              ],
+              "path": [
+                "__aegis_list"
+              ]
+            },
+            "description": "Runs scripts/list_dev_data.py through the localhost-only POC helper. It prints only safe metadata."
+          }
+        },
+        {
+          "name": "Direct Echo Service Check",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('echo service is reachable directly', function () {",
+                  "  pm.response.to.have.status(200);",
+                  "  pm.expect(pm.response.json().status).to.eql('ok');",
+                  "});"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "GET",
+            "header": [
+              {
+                "key": "X-POC-Marker",
+                "value": "direct-echo"
+              }
+            ],
+            "url": {
+              "raw": "{{echo_base_url}}/api/echo",
+              "host": [
+                "{{echo_base_url}}"
+              ],
+              "path": [
+                "api",
+                "echo"
+              ]
+            },
+            "description": "Checks the disposable upstream service directly. This bypasses Aegis."
+          }
+        }
+      ]
+    },
+    {
+      "name": "1. Scope Checks",
+      "item": [
+        {
+          "name": "Read Allowed - Consumer1 echo:read",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('consumer1 read is allowed', function () {",
+                  "  pm.response.to.have.status(200);",
+                  "  pm.expect(pm.response.json().method).to.eql('GET');",
+                  "});",
+                  "pm.test('credentials were stripped before upstream', function () {",
+                  "  const headers = Object.keys(pm.response.json().headers || {}).map((name) => name.toLowerCase());",
+                  "  pm.expect(headers).to.not.include('x-api-key');",
+                  "  pm.expect(headers).to.not.include('authorization');",
+                  "});"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "GET",
+            "header": [
+              {
+                "key": "X-API-Key",
+                "value": "{{consumer1_key}}"
+              },
+              {
+                "key": "Authorization",
+                "value": "Bearer {{demo_jwt}}"
+              }
+            ],
+            "url": {
+              "raw": "{{proxy_base_url}}/api/echo",
+              "host": [
+                "{{proxy_base_url}}"
+              ],
+              "path": [
+                "api",
+                "echo"
+              ]
+            },
+            "description": "Consumer1 has echo:read, so GET /api/echo should pass."
+          }
+        },
+        {
+          "name": "Write Blocked - Consumer1 Missing echo:write",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('consumer1 write is blocked by scope enforcement', function () {",
+                  "  pm.response.to.have.status(403);",
+                  "  pm.expect(pm.response.json().errorCode).to.eql('INSUFFICIENT_SCOPE');",
+                  "});"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "X-API-Key",
+                "value": "{{consumer1_key}}"
+              },
+              {
+                "key": "Authorization",
+                "value": "Bearer {{demo_jwt}}"
+              },
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\"poc\":\"write-scope\"}"
+            },
+            "url": {
+              "raw": "{{proxy_base_url}}/api/echo",
+              "host": [
+                "{{proxy_base_url}}"
+              ],
+              "path": [
+                "api",
+                "echo"
+              ]
+            },
+            "description": "Consumer1 has echo:read only, so POST /api/echo should be blocked."
+          }
+        },
+        {
+          "name": "Write Allowed - Consumer2 echo:write",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('consumer2 write is allowed', function () {",
+                  "  pm.response.to.have.status(200);",
+                  "  pm.expect(pm.response.json().method).to.eql('POST');",
+                  "});",
+                  "pm.test('credentials were stripped before upstream', function () {",
+                  "  const headers = Object.keys(pm.response.json().headers || {}).map((name) => name.toLowerCase());",
+                  "  pm.expect(headers).to.not.include('x-api-key');",
+                  "  pm.expect(headers).to.not.include('authorization');",
+                  "});"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "X-API-Key",
+                "value": "{{consumer2_key}}"
+              },
+              {
+                "key": "Authorization",
+                "value": "Bearer {{demo_jwt}}"
+              },
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\"poc\":\"write-scope\"}"
+            },
+            "url": {
+              "raw": "{{proxy_base_url}}/api/echo",
+              "host": [
+                "{{proxy_base_url}}"
+              ],
+              "path": [
+                "api",
+                "echo"
+              ]
+            },
+            "description": "Consumer2 has echo:read and echo:write, so POST /api/echo should pass."
+          }
+        }
+      ]
+    },
+    {
+      "name": "2. Defense Checks",
+      "item": [
+        {
+          "name": "Revoked Key Blocked",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('revoked key is blocked', function () {",
+                  "  pm.response.to.have.status(403);",
+                  "  pm.expect(pm.response.json().errorCode).to.eql('API_KEY_REVOKED');",
+                  "});"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "GET",
+            "header": [
+              {
+                "key": "X-API-Key",
+                "value": "{{consumer1_revoked_key}}"
+              },
+              {
+                "key": "Authorization",
+                "value": "Bearer {{demo_jwt}}"
+              }
+            ],
+            "url": {
+              "raw": "{{proxy_base_url}}/api/echo",
+              "host": [
+                "{{proxy_base_url}}"
+              ],
+              "path": [
+                "api",
+                "echo"
+              ]
+            }
+          }
+        },
+        {
+          "name": "No API Key Blocked",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('missing API key is blocked', function () {",
+                  "  pm.response.to.have.status(401);",
+                  "  pm.expect(pm.response.json().errorCode).to.eql('API_KEY_MISSING');",
+                  "});"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "GET",
+            "header": [
+              {
+                "key": "Authorization",
+                "value": "Bearer {{demo_jwt}}"
+              }
+            ],
+            "url": {
+              "raw": "{{proxy_base_url}}/api/echo",
+              "host": [
+                "{{proxy_base_url}}"
+              ],
+              "path": [
+                "api",
+                "echo"
+              ]
+            }
+          }
+        },
+        {
+          "name": "Malformed Key Blocked",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('malformed key is blocked', function () {",
+                  "  pm.response.to.have.status(401);",
+                  "  pm.expect(pm.response.json().errorCode).to.eql('API_KEY_INVALID');",
+                  "});"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "GET",
+            "header": [
+              {
+                "key": "X-API-Key",
+                "value": "not-an-aegis-key"
+              },
+              {
+                "key": "Authorization",
+                "value": "Bearer {{demo_jwt}}"
+              }
+            ],
+            "url": {
+              "raw": "{{proxy_base_url}}/api/echo",
+              "host": [
+                "{{proxy_base_url}}"
+              ],
+              "path": [
+                "api",
+                "echo"
+              ]
+            }
+          }
+        }
+      ]
+    },
+    {
+      "name": "3. Rate Limit Checks",
+      "item": [
+        {
+          "name": "Consumer1 Flood Request 1",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('request 1 is allowed', function () { pm.response.to.have.status(200); });"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "GET",
+            "header": [
+              {
+                "key": "X-API-Key",
+                "value": "{{consumer1_key}}"
+              },
+              {
+                "key": "Authorization",
+                "value": "Bearer {{demo_jwt}}"
+              }
+            ],
+            "url": {
+              "raw": "{{proxy_base_url}}/api/echo",
+              "host": [
+                "{{proxy_base_url}}"
+              ],
+              "path": [
+                "api",
+                "echo"
+              ]
+            }
+          }
+        },
+        {
+          "name": "Consumer1 Flood Request 2",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('request 2 is allowed', function () { pm.response.to.have.status(200); });"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "GET",
+            "header": [
+              {
+                "key": "X-API-Key",
+                "value": "{{consumer1_key}}"
+              },
+              {
+                "key": "Authorization",
+                "value": "Bearer {{demo_jwt}}"
+              }
+            ],
+            "url": {
+              "raw": "{{proxy_base_url}}/api/echo",
+              "host": [
+                "{{proxy_base_url}}"
+              ],
+              "path": [
+                "api",
+                "echo"
+              ]
+            }
+          }
+        },
+        {
+          "name": "Consumer1 Flood Request 3",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('request 3 is allowed', function () { pm.response.to.have.status(200); });"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "GET",
+            "header": [
+              {
+                "key": "X-API-Key",
+                "value": "{{consumer1_key}}"
+              },
+              {
+                "key": "Authorization",
+                "value": "Bearer {{demo_jwt}}"
+              }
+            ],
+            "url": {
+              "raw": "{{proxy_base_url}}/api/echo",
+              "host": [
+                "{{proxy_base_url}}"
+              ],
+              "path": [
+                "api",
+                "echo"
+              ]
+            }
+          }
+        },
+        {
+          "name": "Consumer1 Flood Request 4",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('request 4 is rate limited', function () {",
+                  "  pm.response.to.have.status(429);",
+                  "  pm.expect(pm.response.json().errorCode).to.eql('RATE_LIMIT_EXCEEDED');",
+                  "});"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "GET",
+            "header": [
+              {
+                "key": "X-API-Key",
+                "value": "{{consumer1_key}}"
+              },
+              {
+                "key": "Authorization",
+                "value": "Bearer {{demo_jwt}}"
+              }
+            ],
+            "url": {
+              "raw": "{{proxy_base_url}}/api/echo",
+              "host": [
+                "{{proxy_base_url}}"
+              ],
+              "path": [
+                "api",
+                "echo"
+              ]
+            }
+          }
+        },
+        {
+          "name": "Consumer2 Isolation After Flood",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('consumer2 is isolated from consumer1 rate counter', function () {",
+                  "  pm.response.to.have.status(200);",
+                  "});"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "GET",
+            "header": [
+              {
+                "key": "X-API-Key",
+                "value": "{{consumer2_key}}"
+              },
+              {
+                "key": "Authorization",
+                "value": "Bearer {{demo_jwt}}"
+              }
+            ],
+            "url": {
+              "raw": "{{proxy_base_url}}/api/echo",
+              "host": [
+                "{{proxy_base_url}}"
+              ],
+              "path": [
+                "api",
+                "echo"
+              ]
+            }
+          }
+        }
+      ],
+      "description": "Run Seed / Rotate Dev Data first, then wait about 10 seconds before running the flood folder so consumer1's demo rate-limit window starts clean."
+    }
+  ]
+}

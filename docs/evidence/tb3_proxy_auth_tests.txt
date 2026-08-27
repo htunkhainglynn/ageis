@@ -1,0 +1,178 @@
+=== RUN   TestHandler
+=== PAUSE TestHandler
+=== RUN   TestHandlerRespectsValidationTimeout
+=== PAUSE TestHandlerRespectsValidationTimeout
+=== RUN   TestHasScopeRequiresExactScope
+=== PAUSE TestHasScopeRequiresExactScope
+=== RUN   TestHandlerEnforcesBackendRoutePermissionPolicy
+=== PAUSE TestHandlerEnforcesBackendRoutePermissionPolicy
+=== RUN   TestPolicyJWTValidatorHS256
+=== PAUSE TestPolicyJWTValidatorHS256
+=== RUN   TestPolicyJWTValidatorAsymmetricAlgorithms
+=== PAUSE TestPolicyJWTValidatorAsymmetricAlgorithms
+=== RUN   TestPolicyJWTValidatorFailsClosedWithoutPolicy
+=== PAUSE TestPolicyJWTValidatorFailsClosedWithoutPolicy
+=== RUN   TestPolicyJWTValidatorRejectsAlgorithmSubstitution
+=== PAUSE TestPolicyJWTValidatorRejectsAlgorithmSubstitution
+=== RUN   TestAPIKeyValidationAndForwardingIntegration
+=== PAUSE TestAPIKeyValidationAndForwardingIntegration
+=== CONT  TestHandler
+=== RUN   TestHandler/blocked_IP
+=== PAUSE TestHandler/blocked_IP
+=== RUN   TestHandler/IP_policy_unavailable
+=== CONT  TestPolicyJWTValidatorAsymmetricAlgorithms
+=== PAUSE TestHandler/IP_policy_unavailable
+=== CONT  TestHasScopeRequiresExactScope
+=== CONT  TestHandlerRespectsValidationTimeout
+=== CONT  TestHandlerEnforcesBackendRoutePermissionPolicy
+=== CONT  TestAPIKeyValidationAndForwardingIntegration
+=== RUN   TestAPIKeyValidationAndForwardingIntegration/valid_key_is_cached_and_forwarded
+=== PAUSE TestAPIKeyValidationAndForwardingIntegration/valid_key_is_cached_and_forwarded
+=== RUN   TestAPIKeyValidationAndForwardingIntegration/revoked_key_is_negatively_cached
+=== CONT  TestPolicyJWTValidatorFailsClosedWithoutPolicy
+--- PASS: TestPolicyJWTValidatorFailsClosedWithoutPolicy (0.00s)
+=== PAUSE TestAPIKeyValidationAndForwardingIntegration/revoked_key_is_negatively_cached
+=== RUN   TestAPIKeyValidationAndForwardingIntegration/Control_Plane_failures_are_not_cached
+=== PAUSE TestAPIKeyValidationAndForwardingIntegration/Control_Plane_failures_are_not_cached
+=== RUN   TestAPIKeyValidationAndForwardingIntegration/missing_key_is_rejected_locally
+=== CONT  TestPolicyJWTValidatorRejectsAlgorithmSubstitution
+=== CONT  TestPolicyJWTValidatorHS256
+=== RUN   TestHandler/threat_detected
+=== PAUSE TestHandler/threat_detected
+=== RUN   TestHandler/threat_policy_unavailable
+=== PAUSE TestHandler/threat_policy_unavailable
+=== RUN   TestHandler/missing_key
+=== PAUSE TestHandler/missing_key
+=== RUN   TestHandler/unknown_key
+=== PAUSE TestHandler/unknown_key
+=== RUN   TestHandler/revoked_key
+=== PAUSE TestHandler/revoked_key
+=== RUN   TestHandler/expired_key
+=== PAUSE TestAPIKeyValidationAndForwardingIntegration/missing_key_is_rejected_locally
+=== CONT  TestAPIKeyValidationAndForwardingIntegration/valid_key_is_cached_and_forwarded
+=== PAUSE TestHandler/expired_key
+=== RUN   TestHandler/validator_unavailable
+=== PAUSE TestHandler/validator_unavailable
+=== RUN   TestHandler/missing_JWT
+=== PAUSE TestHandler/missing_JWT
+=== RUN   TestHandler/invalid_JWT
+=== CONT  TestAPIKeyValidationAndForwardingIntegration/revoked_key_is_negatively_cached
+=== CONT  TestAPIKeyValidationAndForwardingIntegration/Control_Plane_failures_are_not_cached
+=== RUN   TestPolicyJWTValidatorHS256/valid_token
+=== RUN   TestHandlerEnforcesBackendRoutePermissionPolicy/matching_scope_allowed
+=== PAUSE TestPolicyJWTValidatorHS256/valid_token
+=== RUN   TestPolicyJWTValidatorHS256/expired_token
+=== PAUSE TestPolicyJWTValidatorHS256/expired_token
+=== RUN   TestPolicyJWTValidatorHS256/wrong_issuer
+=== PAUSE TestPolicyJWTValidatorHS256/wrong_issuer
+=== RUN   TestPolicyJWTValidatorHS256/missing_expiration
+=== PAUSE TestPolicyJWTValidatorHS256/missing_expiration
+=== RUN   TestPolicyJWTValidatorHS256/malformed_token
+=== PAUSE TestPolicyJWTValidatorHS256/malformed_token
+=== RUN   TestPolicyJWTValidatorHS256/missing_token
+=== PAUSE TestPolicyJWTValidatorHS256/missing_token
+=== CONT  TestPolicyJWTValidatorHS256/valid_token
+=== CONT  TestPolicyJWTValidatorHS256/missing_token
+=== CONT  TestPolicyJWTValidatorHS256/malformed_token
+=== CONT  TestPolicyJWTValidatorHS256/missing_expiration
+=== CONT  TestPolicyJWTValidatorHS256/wrong_issuer
+=== PAUSE TestHandler/invalid_JWT
+=== CONT  TestPolicyJWTValidatorHS256/expired_token
+=== RUN   TestHandler/expired_JWT
+=== PAUSE TestHandler/expired_JWT
+=== RUN   TestHandler/policy_unavailable
+=== PAUSE TestHandler/policy_unavailable
+=== RUN   TestHandler/write_scope_allowed
+=== RUN   TestHasScopeRequiresExactScope/specific_match
+=== PAUSE TestHandler/write_scope_allowed
+=== RUN   TestHandler/rate_limiter_unavailable
+=== PAUSE TestHandler/rate_limiter_unavailable
+=== RUN   TestHandler/rate_limit_exceeded
+=== PAUSE TestHandler/rate_limit_exceeded
+=== RUN   TestHandler/valid_credentials
+=== PAUSE TestHandler/valid_credentials
+=== CONT  TestHandler/blocked_IP
+=== CONT  TestHandler/invalid_JWT
+--- PASS: TestPolicyJWTValidatorHS256 (0.00s)
+    --- PASS: TestPolicyJWTValidatorHS256/valid_token (0.00s)
+    --- PASS: TestPolicyJWTValidatorHS256/missing_token (0.00s)
+    --- PASS: TestPolicyJWTValidatorHS256/malformed_token (0.00s)
+    --- PASS: TestPolicyJWTValidatorHS256/missing_expiration (0.00s)
+    --- PASS: TestPolicyJWTValidatorHS256/wrong_issuer (0.00s)
+    --- PASS: TestPolicyJWTValidatorHS256/expired_token (0.00s)
+=== CONT  TestAPIKeyValidationAndForwardingIntegration/missing_key_is_rejected_locally
+=== PAUSE TestHasScopeRequiresExactScope/specific_match
+=== RUN   TestHasScopeRequiresExactScope/resource_wildcard_is_not_implicit
+=== PAUSE TestHasScopeRequiresExactScope/resource_wildcard_is_not_implicit
+=== RUN   TestHasScopeRequiresExactScope/global_wildcard_is_not_implicit
+=== PAUSE TestHasScopeRequiresExactScope/global_wildcard_is_not_implicit
+=== RUN   TestHasScopeRequiresExactScope/missing_write
+=== PAUSE TestHasScopeRequiresExactScope/missing_write
+=== CONT  TestHasScopeRequiresExactScope/specific_match
+=== CONT  TestHandler/valid_credentials
+=== CONT  TestHandler/validator_unavailable
+=== CONT  TestHandler/expired_key
+=== CONT  TestHandler/revoked_key
+=== CONT  TestHandler/unknown_key
+=== CONT  TestHandler/missing_key
+=== CONT  TestHandler/threat_policy_unavailable
+=== CONT  TestHandler/threat_detected
+=== CONT  TestHandler/IP_policy_unavailable
+=== CONT  TestHandler/rate_limit_exceeded
+=== CONT  TestHandler/missing_JWT
+=== CONT  TestHandler/write_scope_allowed
+=== CONT  TestHandler/rate_limiter_unavailable
+=== CONT  TestHandler/expired_JWT
+=== CONT  TestHandler/policy_unavailable
+=== CONT  TestHasScopeRequiresExactScope/missing_write
+=== CONT  TestHasScopeRequiresExactScope/global_wildcard_is_not_implicit
+=== CONT  TestHasScopeRequiresExactScope/resource_wildcard_is_not_implicit
+--- PASS: TestHasScopeRequiresExactScope (0.00s)
+    --- PASS: TestHasScopeRequiresExactScope/specific_match (0.00s)
+    --- PASS: TestHasScopeRequiresExactScope/missing_write (0.00s)
+    --- PASS: TestHasScopeRequiresExactScope/global_wildcard_is_not_implicit (0.00s)
+    --- PASS: TestHasScopeRequiresExactScope/resource_wildcard_is_not_implicit (0.00s)
+=== RUN   TestHandlerEnforcesBackendRoutePermissionPolicy/missing_scope_denied
+=== RUN   TestHandlerEnforcesBackendRoutePermissionPolicy/method_mismatch_allowed_by_default
+--- PASS: TestHandler (0.00s)
+    --- PASS: TestHandler/blocked_IP (0.00s)
+    --- PASS: TestHandler/invalid_JWT (0.00s)
+    --- PASS: TestHandler/validator_unavailable (0.00s)
+    --- PASS: TestHandler/expired_key (0.00s)
+    --- PASS: TestHandler/revoked_key (0.00s)
+    --- PASS: TestHandler/unknown_key (0.00s)
+    --- PASS: TestHandler/missing_key (0.00s)
+    --- PASS: TestHandler/threat_policy_unavailable (0.00s)
+    --- PASS: TestHandler/threat_detected (0.00s)
+    --- PASS: TestHandler/IP_policy_unavailable (0.00s)
+    --- PASS: TestHandler/rate_limit_exceeded (0.00s)
+    --- PASS: TestHandler/missing_JWT (0.00s)
+    --- PASS: TestHandler/rate_limiter_unavailable (0.00s)
+    --- PASS: TestHandler/expired_JWT (0.00s)
+    --- PASS: TestHandler/policy_unavailable (0.00s)
+    --- PASS: TestHandler/valid_credentials (0.00s)
+    --- PASS: TestHandler/write_scope_allowed (0.00s)
+=== RUN   TestHandlerEnforcesBackendRoutePermissionPolicy/path_mismatch_allowed_by_default
+--- PASS: TestHandlerEnforcesBackendRoutePermissionPolicy (0.01s)
+    --- PASS: TestHandlerEnforcesBackendRoutePermissionPolicy/matching_scope_allowed (0.00s)
+    --- PASS: TestHandlerEnforcesBackendRoutePermissionPolicy/missing_scope_denied (0.00s)
+    --- PASS: TestHandlerEnforcesBackendRoutePermissionPolicy/method_mismatch_allowed_by_default (0.00s)
+    --- PASS: TestHandlerEnforcesBackendRoutePermissionPolicy/path_mismatch_allowed_by_default (0.00s)
+--- PASS: TestAPIKeyValidationAndForwardingIntegration (0.00s)
+    --- PASS: TestAPIKeyValidationAndForwardingIntegration/missing_key_is_rejected_locally (0.00s)
+    --- PASS: TestAPIKeyValidationAndForwardingIntegration/revoked_key_is_negatively_cached (0.00s)
+    --- PASS: TestAPIKeyValidationAndForwardingIntegration/Control_Plane_failures_are_not_cached (0.00s)
+    --- PASS: TestAPIKeyValidationAndForwardingIntegration/valid_key_is_cached_and_forwarded (0.00s)
+--- PASS: TestHandlerRespectsValidationTimeout (0.01s)
+=== RUN   TestPolicyJWTValidatorAsymmetricAlgorithms/RS256
+=== PAUSE TestPolicyJWTValidatorAsymmetricAlgorithms/RS256
+=== RUN   TestPolicyJWTValidatorAsymmetricAlgorithms/ES256
+=== PAUSE TestPolicyJWTValidatorAsymmetricAlgorithms/ES256
+=== CONT  TestPolicyJWTValidatorAsymmetricAlgorithms/RS256
+=== CONT  TestPolicyJWTValidatorAsymmetricAlgorithms/ES256
+--- PASS: TestPolicyJWTValidatorAsymmetricAlgorithms (0.02s)
+    --- PASS: TestPolicyJWTValidatorAsymmetricAlgorithms/ES256 (0.00s)
+    --- PASS: TestPolicyJWTValidatorAsymmetricAlgorithms/RS256 (0.00s)
+--- PASS: TestPolicyJWTValidatorRejectsAlgorithmSubstitution (0.04s)
+PASS
+ok  	github.com/htunkhainglynn/aegis/reverse-proxy/internal/proxy	0.803s

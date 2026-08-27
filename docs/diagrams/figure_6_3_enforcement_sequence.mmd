@@ -1,0 +1,45 @@
+%%{init: {"theme": "neutral", "themeVariables": {"fontFamily": "Arial", "primaryColor": "#ffffff", "primaryTextColor": "#000000", "primaryBorderColor": "#000000", "lineColor": "#000000", "actorBkg": "#ffffff", "actorBorder": "#000000", "actorTextColor": "#000000", "signalColor": "#000000", "signalTextColor": "#000000"}}}%%
+sequenceDiagram
+    autonumber
+    actor C as API client
+    participant P as Go Reverse Proxy
+    participant S as Active policy snapshot
+    participant CP as FastAPI Control Plane
+    participant R as Redis rate limiter
+    participant U as Protected upstream
+
+    C->>P: HTTP request + X-API-Key + Bearer JWT
+    P->>S: Is direct peer IP blocked?
+    alt Blocked IP
+        P-->>C: 403 IP_BLOCKED
+    else Not blocked
+        P->>S: Match METHOD + RequestURI against threat rules
+        alt Threat match
+            P-->>C: 403 THREAT_DETECTED
+        else No threat
+            P->>CP: Validate API key over internal REST
+            alt Key missing / invalid / revoked / expired
+                P-->>C: 401 or 403 structured error
+            else Active key + exact scopes
+                P->>S: Validate JWT signature, expiry, issuer, audience
+                alt JWT invalid
+                    P-->>C: 401 JWT_* error
+                else JWT valid
+                    P->>S: Match exact method and path, then require exact scope
+                    alt Required scope absent
+                        P-->>C: 403 INSUFFICIENT_SCOPE
+                    else Authorised
+                        P->>R: Apply key > route > global rule atomically
+                        alt Limit exceeded
+                            P-->>C: 429 + Retry-After + rate headers
+                        else Allowed
+                            P->>U: Forward cloned request without Aegis credentials
+                            U-->>P: Upstream response
+                            P-->>C: Response + rate metadata
+                        end
+                    end
+                end
+            end
+        end
+    end
+    P-->>CP: Asynchronously report one sanitised terminal event

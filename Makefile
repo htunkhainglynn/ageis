@@ -115,7 +115,7 @@ run: prepare
 	echo "Echo Service:   http://localhost:$${UPSTREAM_PORT:-9000}/api/echo"; \
 	echo "Attack Console: http://127.0.0.1:9100"; \
 	echo ""; \
-	echo "Seeded dev API keys/JWT were printed above. Paste those exports into the attack console."; \
+	echo "Use Attack Console -> Prepare demo data to auto-load keys/JWT for proxy checks."; \
 	echo "Press Ctrl-C to stop local app processes. Use 'make stop' to stop Postgres/Redis."; \
 	while true; do \
 		for pid in "$${pids[@]}"; do \

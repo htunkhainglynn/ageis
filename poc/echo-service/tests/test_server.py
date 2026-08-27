@@ -39,8 +39,59 @@ def test_echo_route_returns_headers_and_timestamp() -> None:
 
         assert response.status == 200
         assert payload["status"] == "ok"
+        assert payload["resource"] == "echo"
+        assert payload["method"] == "GET"
         assert payload["headers"]["X-Poc-Marker"] == "reached-upstream"
         assert datetime.fromisoformat(payload["timestamp"]).tzinfo is not None
+    finally:
+        server.shutdown()
+        server.server_close()
+        thread.join(timeout=2)
+
+
+def test_echo_route_accepts_post_for_write_scope_demo() -> None:
+    """POST /api/echo gives the proxy POC a write-scope upstream target."""
+    module = load_server_module()
+    server = module.create_server("127.0.0.1", 0)
+    thread = threading.Thread(target=server.serve_forever, daemon=True)
+    thread.start()
+    try:
+        request = urllib.request.Request(
+            f"http://127.0.0.1:{server.server_port}/api/echo",
+            data=b"{}",
+            headers={"Content-Type": "application/json"},
+            method="POST",
+        )
+        with urllib.request.urlopen(request, timeout=2) as response:
+            payload = json.load(response)
+
+        assert response.status == 200
+        assert payload["status"] == "ok"
+        assert payload["resource"] == "echo"
+        assert payload["method"] == "POST"
+    finally:
+        server.shutdown()
+        server.server_close()
+        thread.join(timeout=2)
+
+
+def test_orders_route_returns_resource_marker() -> None:
+    """GET /api/orders is a second resource for resource:action scope demos."""
+    module = load_server_module()
+    server = module.create_server("127.0.0.1", 0)
+    thread = threading.Thread(target=server.serve_forever, daemon=True)
+    thread.start()
+    try:
+        with urllib.request.urlopen(
+            f"http://127.0.0.1:{server.server_port}/api/orders",
+            timeout=2,
+        ) as response:
+            payload = json.load(response)
+
+        assert response.status == 200
+        assert payload["status"] == "ok"
+        assert payload["resource"] == "orders"
+        assert payload["method"] == "GET"
     finally:
         server.shutdown()
         server.server_close()

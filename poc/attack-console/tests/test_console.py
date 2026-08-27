@@ -57,6 +57,12 @@ class FakeProxyHandler(BaseHTTPRequestHandler):
         self.wfile.write(body)
 
     def do_GET(self) -> None:  # noqa: N802 - BaseHTTPRequestHandler API
+        self._handle_echo()
+
+    def do_POST(self) -> None:  # noqa: N802 - BaseHTTPRequestHandler API
+        self._handle_echo()
+
+    def _handle_echo(self) -> None:
         if self.path != "/api/echo":
             self._respond(HTTPStatus.NOT_FOUND, {"status": "error"})
             return
@@ -70,6 +76,7 @@ class FakeProxyHandler(BaseHTTPRequestHandler):
                 HTTPStatus.OK,
                 {
                     "status": "ok",
+                    "method": self.command,
                     "timestamp": "2026-07-31T00:00:00+00:00",
                     "headers": {"X-Poc-Console": "attack-defense"},
                 },
@@ -102,11 +109,15 @@ def test_single_page_contains_every_required_scenario_and_no_raw_credentials() -
     assert collector.button_ids.issuperset(
         {
             "valid-request",
+            "write-blocked",
+            "write-allowed",
             "revoked-key",
             "no-api-key",
             "malformed-key",
             "flood-test",
             "cross-consumer",
+            "seed-dev-data",
+            "list-dev-data",
             "clear-log",
         }
     )
@@ -119,11 +130,15 @@ def test_single_page_contains_every_required_scenario_and_no_raw_credentials() -
             "flood-progress",
             "pass-summary",
             "results-body",
+            "helper-status",
+            "helper-output",
         }
     )
     assert "expectedStatuses: [200]" in html
     assert "expectedStatuses: [403]" in html
     assert "expectedStatuses: [401]" in html
+    assert "echo:read" in html
+    assert "echo:write" in html
     assert "const expectedStatus = index <= 3 ? 200 : 429" in html
     assert "AEGIS_CONSUMER1_KEY" in html
     assert "AEGIS_CONSUMER1_REVOKED_KEY" in html
@@ -131,6 +146,17 @@ def test_single_page_contains_every_required_scenario_and_no_raw_credentials() -
     assert "AEGIS_DEMO_JWT" in html
     assert "ak_test" not in html
     assert "eyJhbGci" not in html
+
+
+def test_dev_helper_runner_allows_only_seed_and_list_scripts() -> None:
+    """The relay exposes only the two approved local dev helper scripts."""
+    module = load_console_server()
+    try:
+        module.run_dev_script("not_allowed.py")
+    except ValueError:
+        pass
+    else:
+        raise AssertionError("Unexpected helper script was accepted.")
 
 
 def test_relay_rejects_every_non_loopback_or_non_base_target() -> None:
@@ -163,12 +189,15 @@ def test_probe_preserves_defense_statuses_without_exposing_credentials() -> None
     base_url = f"http://127.0.0.1:{proxy.server_port}"
     try:
         valid = module.run_probe(base_url, "test-active-key", "test.jwt.value")
+        write = module.run_probe(base_url, "test-active-key", "test.jwt.value", method="POST")
         revoked = module.run_probe(base_url, "test-revoked-key", "test.jwt.value")
         missing = module.run_probe(base_url, "", "test.jwt.value")
         malformed = module.run_probe(base_url, "not-an-aegis-key", "test.jwt.value")
 
         assert valid["proxy_status"] == 200
         assert valid["body"]["status"] == "ok"
+        assert write["proxy_status"] == 200
+        assert write["body"]["method"] == "POST"
         assert "X-API-Key" not in valid["body"]["headers"]
         assert "Authorization" not in valid["body"]["headers"]
         assert revoked["proxy_status"] == 403
@@ -215,3 +244,42 @@ def test_console_launcher_serves_page_and_same_origin_probe() -> None:
     finally:
         stop_server(console, console_thread)
         stop_server(proxy, proxy_thread)
+
+
+def test_console_launcher_serves_seed_and_list_helper_endpoints() -> None:
+    """The localhost console can trigger approved dev helper actions."""
+    module = load_console_server()
+    calls: list[str] = []
+
+    def fake_run_dev_script(script_name: str) -> dict[str, object]:
+        calls.append(script_name)
+        return {
+            "ok": True,
+            "exit_code": 0,
+            "stdout": f"ran {script_name}",
+            "stderr": "",
+        }
+
+    module.run_dev_script = fake_run_dev_script
+    console = module.create_server("127.0.0.1", 0)
+    console_thread = start_server(console)
+    try:
+        console_url = f"http://127.0.0.1:{console.server_port}"
+
+        seed_request = urllib.request.Request(
+            f"{console_url}/__aegis_seed",
+            data=b"",
+            method="POST",
+        )
+        with urllib.request.urlopen(seed_request, timeout=2) as response:
+            seed_result = json.load(response)
+        assert response.status == 200
+        assert seed_result["stdout"] == "ran seed_dev_data.py"
+
+        with urllib.request.urlopen(f"{console_url}/__aegis_list", timeout=2) as response:
+            list_result = json.load(response)
+        assert response.status == 200
+        assert list_result["stdout"] == "ran list_dev_data.py"
+        assert calls == ["seed_dev_data.py", "list_dev_data.py"]
+    finally:
+        stop_server(console, console_thread)

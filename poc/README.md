@@ -103,7 +103,22 @@ assume the default proxy address:
 export AEGIS_PROXY_URL="http://localhost:${PROXY_PORT:-8080}"
 ```
 
+If another local service occupies port 8080, set `PROXY_PORT=8082` (or the
+port printed by `make run`) and update the Postman `proxy_base_url` variable to
+the same URL.
+
 ## 5. Manual verification
+
+You can run the same POC checks from Postman by importing:
+
+```text
+poc/aegis-poc.postman_collection.json
+```
+
+Run **0. Prepare Demo Data / Seed / Rotate Dev Data** first. That request
+stores fresh `consumer1_key`, `consumer1_revoked_key`, `consumer2_key`, and
+`demo_jwt` collection variables automatically. Then run the scope, defense,
+and rate-limit folders in order.
 
 ### Valid consumer1 key reaches the echo service
 

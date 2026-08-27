@@ -91,11 +91,13 @@ health_code=$(request "$TMP_DIR/health.json" "$CONTROL_URL/health")
 [ "$health_code" = "200" ] || fail "Control Plane health returned HTTP $health_code"
 jq -e '.data.database == "up" and .data.redis == "up"' "$TMP_DIR/health.json" >/dev/null ||
   fail "Control Plane dependencies are not healthy"
+echo "[PASS] Health: Control Plane 200; PostgreSQL=up; Redis=up"
 
 dashboard_code=$(request "$TMP_DIR/dashboard.html" "$DASHBOARD_URL/login")
 [ "$dashboard_code" = "200" ] || fail "Dashboard login returned HTTP $dashboard_code"
 grep -q "Sign in to Aegis" "$TMP_DIR/dashboard.html" ||
   fail "Dashboard login content is missing"
+echo "[PASS] Dashboard: login page returned 200 with expected content"
 
 login_payload=$(jq -n \
   --arg email "$BOOTSTRAP_ADMIN_EMAILS" \
@@ -107,6 +109,7 @@ login_code=$(request "$TMP_DIR/login.json" \
   "$CONTROL_URL/api/v1/auth/login")
 [ "$login_code" = "200" ] || fail "Admin login returned HTTP $login_code"
 ACCESS_TOKEN=$(jq -er '.data.access_token' "$TMP_DIR/login.json")
+echo "[PASS] Identity: valid admin login returned 200 and an access token"
 
 api_key_code=$(request "$TMP_DIR/api-key.json" \
   -H "Authorization: Bearer $ACCESS_TOKEN" \
@@ -115,6 +118,7 @@ api_key_code=$(request "$TMP_DIR/api-key.json" \
   "$CONTROL_URL/api/v1/api-keys")
 [ "$api_key_code" = "201" ] || fail "API-key creation returned HTTP $api_key_code"
 RAW_API_KEY=$(jq -er '.data.api_key' "$TMP_DIR/api-key.json")
+echo "[PASS] API key: create returned 201 with scope upstream:read and one-time secret"
 
 revoked_key_code=$(request "$TMP_DIR/revoked-key.json" \
   -H "Authorization: Bearer $ACCESS_TOKEN" \
@@ -129,6 +133,7 @@ revoke_code=$(request "$TMP_DIR/revoke.json" \
   -H "Authorization: Bearer $ACCESS_TOKEN" \
   "$CONTROL_URL/api/v1/api-keys/$REVOKED_KEY_ID")
 [ "$revoke_code" = "200" ] || fail "API-key revocation returned HTTP $revoke_code"
+echo "[PASS] API key: a second key was created and revoked through the Control Plane"
 
 jwt_payload=$(jq -n \
   --arg key "$E2E_JWT_SIGNING_KEY" \
@@ -154,6 +159,7 @@ activate_code=$(request "$TMP_DIR/activate.json" \
   -H "Authorization: Bearer $ACCESS_TOKEN" \
   "$CONTROL_URL/api/v1/jwt-configs/$JWT_CONFIG_ID/activate")
 [ "$activate_code" = "200" ] || fail "JWT activation returned HTTP $activate_code"
+echo "[PASS] JWT policy: HS256 configuration created and activated"
 
 threat_code=$(request "$TMP_DIR/threat-rule.json" \
   -H "Authorization: Bearer $ACCESS_TOKEN" \
@@ -161,6 +167,7 @@ threat_code=$(request "$TMP_DIR/threat-rule.json" \
   -d '{"name":"E2E traversal","pattern":"e2e-threat","severity":"high","status":"active"}' \
   "$CONTROL_URL/api/v1/threat-rules")
 [ "$threat_code" = "201" ] || fail "Threat-rule creation returned HTTP $threat_code"
+echo "[PASS] Threat policy: active request-target rule created"
 
 CLIENT_JWT=$(compose exec -T \
   -e E2E_JWT_SIGNING_KEY="$E2E_JWT_SIGNING_KEY" \
@@ -190,6 +197,7 @@ print(urllib.request.urlopen(request).status)
 ')
 [ "$grpc_prime_code" = "200" ] ||
   fail "gRPC policy priming request returned HTTP $grpc_prime_code"
+echo "[PASS] Policy distribution: authenticated gRPC snapshot enabled a 200 upstream response"
 
 block_payload=$(jq -n \
   --arg ip_address "$PROXY_CLIENT_IP" \
@@ -234,6 +242,7 @@ printf "%s" "$BLOCKED_RESULT" | jq '.body' >"$TMP_DIR/blocked.json"
 [ "$blocked_code" = "403" ] || fail "Blocked direct peer returned HTTP $blocked_code"
 jq -e '.errorCode == "IP_BLOCKED"' "$TMP_DIR/blocked.json" >/dev/null ||
   fail "IP-block error contract is incorrect"
+echo "[PASS] IP enforcement: exact direct-peer block returned 403 IP_BLOCKED"
 
 unblock_code=$(request "$TMP_DIR/unblock.json" \
   -X DELETE \
@@ -250,6 +259,7 @@ threat_match_code=$(request "$TMP_DIR/threat-match.json" \
 [ "$threat_match_code" = "403" ] || fail "Threat-matching request returned HTTP $threat_match_code"
 jq -e '.errorCode == "THREAT_DETECTED"' "$TMP_DIR/threat-match.json" >/dev/null ||
   fail "Threat detection error contract is incorrect"
+echo "[PASS] Threat enforcement: matching request returned 403 THREAT_DETECTED"
 
 rate_code=$(request "$TMP_DIR/rate.json" \
   -H "Authorization: Bearer $ACCESS_TOKEN" \
@@ -257,6 +267,7 @@ rate_code=$(request "$TMP_DIR/rate.json" \
   -d '{"name":"E2E global","scope_type":"global","scope_value":null,"algorithm":"fixed_window","limit_count":2,"window_seconds":60,"status":"active"}' \
   "$CONTROL_URL/api/v1/rate-limit-rules")
 [ "$rate_code" = "201" ] || fail "Rate-rule creation returned HTTP $rate_code"
+echo "[PASS] Rate policy: global fixed-window rule (2 requests / 60 seconds) created"
 
 sleep 2
 
@@ -265,18 +276,21 @@ invalid_key_code=$(request "$TMP_DIR/invalid-key.json" \
   -H "Authorization: Bearer $CLIENT_JWT" \
   "$PROXY_URL/")
 [ "$invalid_key_code" = "401" ] || fail "Invalid API key returned HTTP $invalid_key_code"
+echo "[PASS] Authentication: invalid API key returned 401"
 
 invalid_jwt_code=$(request "$TMP_DIR/invalid-jwt.json" \
   -H "X-API-Key: $RAW_API_KEY" \
   -H "Authorization: Bearer invalid.jwt.value" \
   "$PROXY_URL/")
 [ "$invalid_jwt_code" = "401" ] || fail "Invalid JWT returned HTTP $invalid_jwt_code"
+echo "[PASS] Authentication: invalid JWT returned 401"
 
 revoked_code=$(request "$TMP_DIR/revoked.json" \
   -H "X-API-Key: $REVOKED_API_KEY" \
   -H "Authorization: Bearer $CLIENT_JWT" \
   "$PROXY_URL/")
 [ "$revoked_code" = "403" ] || fail "Revoked API key returned HTTP $revoked_code"
+echo "[PASS] Authorisation: revoked API key returned 403"
 
 first_code=$(request "$TMP_DIR/first.html" \
   -H "X-API-Key: $RAW_API_KEY" \
@@ -296,6 +310,7 @@ third_code=$(request "$TMP_DIR/third.json" \
 [ "$third_code" = "429" ] || fail "Rate-limited request returned HTTP $third_code"
 jq -e '.errorCode == "RATE_LIMIT_EXCEEDED"' "$TMP_DIR/third.json" >/dev/null ||
   fail "Rate-limit error contract is incorrect"
+echo "[PASS] Rate enforcement: request statuses were 200, 200, 429 RATE_LIMIT_EXCEEDED"
 
 analytics_attempts=30
 while [ "$analytics_attempts" -gt 0 ]; do
@@ -317,6 +332,7 @@ while [ "$analytics_attempts" -gt 0 ]; do
 done
 [ "$analytics_attempts" -gt 0 ] ||
   fail "Proxy events did not appear in analytics within 30 seconds"
+echo "[PASS] Analytics: forwarded, blocked, threat and rate-limit events were aggregated"
 
 sleep 1
 
@@ -328,6 +344,7 @@ auto_block_code=$(request "$TMP_DIR/auto-blocked.json" \
   fail "Automatically blocked source returned HTTP $auto_block_code"
 jq -e '.errorCode == "IP_BLOCKED"' "$TMP_DIR/auto-blocked.json" >/dev/null ||
   fail "Automatic IP-block enforcement contract is incorrect"
+echo "[PASS] Automatic protection: repeated violations produced 403 IP_BLOCKED"
 
 blocks_code=$(request "$TMP_DIR/ip-blocks.json" \
   -H "Authorization: Bearer $ACCESS_TOKEN" \
@@ -336,5 +353,6 @@ blocks_code=$(request "$TMP_DIR/ip-blocks.json" \
 jq -e '.data.items | any(.source == "auto" and .status == "active")' \
   "$TMP_DIR/ip-blocks.json" >/dev/null ||
   fail "Automatic IP block was not persisted by the Control Plane"
+echo "[PASS] Persistence: the automatic active IP block appears in Control Plane data"
 
 echo "E2E passed: Control Plane -> gRPC policy sync -> reverse proxy -> upstream, including auth, threat/manual/automatic IP blocking, Redis rate limiting, and analytics."

@@ -1,0 +1,82 @@
+=== RUN   TestPolicyIPBlocker
+=== PAUSE TestPolicyIPBlocker
+=== RUN   TestNewPolicyIPBlockerValidation
+=== PAUSE TestNewPolicyIPBlockerValidation
+=== RUN   TestRedisRateLimiterAlgorithms
+=== RUN   TestRedisRateLimiterAlgorithms/fixed_window
+=== RUN   TestRedisRateLimiterAlgorithms/sliding_window
+=== RUN   TestRedisRateLimiterAlgorithms/token_bucket_with_burst
+--- PASS: TestRedisRateLimiterAlgorithms (0.01s)
+    --- PASS: TestRedisRateLimiterAlgorithms/fixed_window (0.00s)
+    --- PASS: TestRedisRateLimiterAlgorithms/sliding_window (0.00s)
+    --- PASS: TestRedisRateLimiterAlgorithms/token_bucket_with_burst (0.00s)
+=== RUN   TestRedisRateLimiterSharesCountersAcrossInstances
+--- PASS: TestRedisRateLimiterSharesCountersAcrossInstances (0.00s)
+=== RUN   TestRedisRateLimiterRecoversAfterWindowOrRefill
+=== RUN   TestRedisRateLimiterRecoversAfterWindowOrRefill/fixed_window
+=== RUN   TestRedisRateLimiterRecoversAfterWindowOrRefill/sliding_window
+=== RUN   TestRedisRateLimiterRecoversAfterWindowOrRefill/token_bucket
+--- PASS: TestRedisRateLimiterRecoversAfterWindowOrRefill (0.00s)
+    --- PASS: TestRedisRateLimiterRecoversAfterWindowOrRefill/fixed_window (0.00s)
+    --- PASS: TestRedisRateLimiterRecoversAfterWindowOrRefill/sliding_window (0.00s)
+    --- PASS: TestRedisRateLimiterRecoversAfterWindowOrRefill/token_bucket (0.00s)
+=== RUN   TestRateLimitRuleSelectionUsesMostSpecificScope
+=== PAUSE TestRateLimitRuleSelectionUsesMostSpecificScope
+=== RUN   TestRedisRateLimiterAllowsWhenNoRuleMatches
+--- PASS: TestRedisRateLimiterAllowsWhenNoRuleMatches (0.00s)
+=== RUN   TestPolicyThreatDetector
+=== PAUSE TestPolicyThreatDetector
+=== RUN   TestNewPolicyThreatDetectorValidation
+=== PAUSE TestNewPolicyThreatDetectorValidation
+=== CONT  TestPolicyIPBlocker
+=== RUN   TestPolicyIPBlocker/blocks_IPv4_direct_peer
+=== PAUSE TestPolicyIPBlocker/blocks_IPv4_direct_peer
+=== CONT  TestNewPolicyThreatDetectorValidation
+=== CONT  TestRateLimitRuleSelectionUsesMostSpecificScope
+--- PASS: TestNewPolicyThreatDetectorValidation (0.00s)
+--- PASS: TestRateLimitRuleSelectionUsesMostSpecificScope (0.00s)
+=== CONT  TestPolicyThreatDetector
+=== RUN   TestPolicyThreatDetector/matches_encoded_traversal_in_request_target
+=== RUN   TestPolicyIPBlocker/blocks_canonical_IPv6_direct_peer
+=== PAUSE TestPolicyThreatDetector/matches_encoded_traversal_in_request_target
+=== RUN   TestPolicyThreatDetector/allows_clean_target
+=== PAUSE TestPolicyThreatDetector/allows_clean_target
+=== RUN   TestPolicyThreatDetector/invalid_distributed_regex_fails_closed
+=== PAUSE TestPolicyThreatDetector/invalid_distributed_regex_fails_closed
+=== RUN   TestPolicyThreatDetector/policy_outage_fails_closed
+=== PAUSE TestPolicyIPBlocker/blocks_canonical_IPv6_direct_peer
+=== CONT  TestNewPolicyIPBlockerValidation
+=== RUN   TestPolicyIPBlocker/ignores_forwarded_header_semantics_and_allows_other_peer
+--- PASS: TestNewPolicyIPBlockerValidation (0.00s)
+=== PAUSE TestPolicyIPBlocker/ignores_forwarded_header_semantics_and_allows_other_peer
+=== PAUSE TestPolicyThreatDetector/policy_outage_fails_closed
+=== CONT  TestPolicyThreatDetector/matches_encoded_traversal_in_request_target
+=== CONT  TestPolicyThreatDetector/policy_outage_fails_closed
+=== CONT  TestPolicyThreatDetector/invalid_distributed_regex_fails_closed
+=== CONT  TestPolicyThreatDetector/allows_clean_target
+=== RUN   TestPolicyIPBlocker/rejects_malformed_direct_peer
+=== PAUSE TestPolicyIPBlocker/rejects_malformed_direct_peer
+=== RUN   TestPolicyIPBlocker/fails_closed_when_policy_unavailable
+=== PAUSE TestPolicyIPBlocker/fails_closed_when_policy_unavailable
+=== RUN   TestPolicyIPBlocker/fails_closed_on_invalid_trusted_policy
+=== PAUSE TestPolicyIPBlocker/fails_closed_on_invalid_trusted_policy
+=== CONT  TestPolicyIPBlocker/blocks_IPv4_direct_peer
+=== CONT  TestPolicyIPBlocker/fails_closed_on_invalid_trusted_policy
+=== CONT  TestPolicyIPBlocker/fails_closed_when_policy_unavailable
+=== CONT  TestPolicyIPBlocker/rejects_malformed_direct_peer
+=== CONT  TestPolicyIPBlocker/ignores_forwarded_header_semantics_and_allows_other_peer
+=== CONT  TestPolicyIPBlocker/blocks_canonical_IPv6_direct_peer
+--- PASS: TestPolicyIPBlocker (0.00s)
+    --- PASS: TestPolicyIPBlocker/blocks_IPv4_direct_peer (0.00s)
+    --- PASS: TestPolicyIPBlocker/fails_closed_on_invalid_trusted_policy (0.00s)
+    --- PASS: TestPolicyIPBlocker/fails_closed_when_policy_unavailable (0.00s)
+    --- PASS: TestPolicyIPBlocker/rejects_malformed_direct_peer (0.00s)
+    --- PASS: TestPolicyIPBlocker/ignores_forwarded_header_semantics_and_allows_other_peer (0.00s)
+    --- PASS: TestPolicyIPBlocker/blocks_canonical_IPv6_direct_peer (0.00s)
+--- PASS: TestPolicyThreatDetector (0.00s)
+    --- PASS: TestPolicyThreatDetector/invalid_distributed_regex_fails_closed (0.00s)
+    --- PASS: TestPolicyThreatDetector/allows_clean_target (0.00s)
+    --- PASS: TestPolicyThreatDetector/policy_outage_fails_closed (0.00s)
+    --- PASS: TestPolicyThreatDetector/matches_encoded_traversal_in_request_target (0.00s)
+PASS
+ok  	github.com/htunkhainglynn/aegis/reverse-proxy/internal/proxy	0.342s

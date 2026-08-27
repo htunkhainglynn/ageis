@@ -1,0 +1,153 @@
+cd aegis-backend && ../aegis-backend/.venv/bin/python -m coverage run -m pytest -q
+...............................................                          [100%]
+=============================== warnings summary ===============================
+tests/test_auth_and_user_rbac.py::test_login_and_refresh_tokens_include_current_email_and_role
+tests/test_auth_and_user_rbac.py::test_login_and_refresh_tokens_include_current_email_and_role
+tests/test_auth_and_user_rbac.py::test_login_and_refresh_tokens_include_current_email_and_role
+tests/test_auth_and_user_rbac.py::test_logout_revokes_the_access_token
+  /Users/htunkhainglynn/Projects/aegis/aegis-backend/.venv/lib/python3.13/site-packages/jose/jwt.py:311: DeprecationWarning: datetime.datetime.utcnow() is deprecated and scheduled for removal in a future version. Use timezone-aware objects to represent datetimes in UTC: datetime.datetime.now(datetime.UTC).
+    now = timegm(datetime.utcnow().utctimetuple())
+
+-- Docs: https://docs.pytest.org/en/stable/how-to/capture-warnings.html
+47 passed, 4 warnings in 34.58s
+cd aegis-backend && ../aegis-backend/.venv/bin/python -m coverage report
+Name                                              Stmts   Miss  Cover   Missing
+-------------------------------------------------------------------------------
+app/core/authorization.py                            38      8    79%   25-26, 32-42, 87
+app/core/bootstrap.py                                32      6    81%   18, 26, 44-51, 57-58
+app/core/config.py                                   92      2    98%   108, 130
+app/core/database.py                                 29     17    41%   20-21, 26-31, 36-43, 48
+app/core/encryption.py                               18      5    72%   11, 17-18, 33-34
+app/core/exception_handlers.py                       22      2    91%   42-43
+app/core/exceptions.py                               27      2    93%   50, 57
+app/core/rate_limit.py                               16     11    31%   10-28
+app/core/redis.py                                    42     29    31%   16-29, 35-37, 42-48, 53-55, 60-63, 68-70
+app/core/security.py                                 55     14    75%   80, 85-86, 94, 99-100, 105, 110-122
+app/grpc_server.py                                   45      3    93%   24-25, 93
+app/main.py                                          45     20    56%   24-46, 81-89
+app/middlewares/logging.py                           29      4    86%   36-39
+app/repositories/api_key_repository.py               33      8    76%   24, 29, 34, 41, 48-49, 58-59
+app/repositories/base.py                             41     22    46%   24, 29, 33-37, 41-51, 55-61
+app/repositories/ip_block_repository.py              41      8    80%   20-21, 28-29, 44, 52, 67, 76
+app/repositories/jwt_config_repository.py            36     13    64%   20-21, 25-31, 35-36, 43, 52-53, 62-65
+app/repositories/rate_limit_rule_repository.py       48      8    83%   22-23, 32-33, 52, 64, 91, 100
+app/repositories/route_permission_repository.py      39      6    85%   19-20, 28-29, 40, 71
+app/repositories/security_event_repository.py        27      6    78%   21-22, 29, 41-48, 66
+app/repositories/threat_rule_repository.py           34      6    82%   19-20, 28-29, 40, 54
+app/repositories/user_repository.py                  28      4    86%   23-24, 41-42
+app/routers/analytics_router.py                      24      2    92%   39, 66
+app/routers/api_key_router.py                        39      8    79%   51, 67, 91, 109-113, 132-137, 160
+app/routers/auth_router.py                           23      2    91%   40, 59
+app/routers/internal_router.py                       19      1    95%   43
+app/routers/ip_block_router.py                       33      6    82%   39, 61, 75-76, 92, 107
+app/routers/jwt_config_router.py                     39      7    82%   45, 61-66, 85, 106, 125, 145
+app/routers/rate_limit_rule_router.py                36      5    86%   49, 74, 93, 114, 134
+app/routers/route_permission_router.py               29      1    97%   76
+app/routers/threat_rule_router.py                    29      1    97%   56
+app/routers/user_router.py                           33      5    85%   37, 57, 76, 96, 115
+app/schemas/analytics.py                             45      1    98%   25
+app/schemas/jwt_config.py                            63      1    98%   30
+app/schemas/rate_limit_rule.py                       66      1    98%   30
+app/schemas/threat_rule.py                           51      1    98%   12
+app/services/analytics_service.py                    45     13    71%   34, 41-42, 56-75, 83, 94
+app/services/api_key_service.py                      98     63    36%   44-45, 51-56, 77-102, 107-118, 127-136, 145-166, 171-182, 192-230
+app/services/auth_service.py                         47     24    49%   27-55, 66, 71, 78-79, 85-104, 115
+app/services/base.py                                 20      5    75%   24, 28, 32, 36, 40
+app/services/ip_block_service.py                     53     24    55%   29, 43-44, 66, 78, 87-94, 105, 110-125, 131-137
+app/services/jwt_config_service.py                   95     50    47%   37-38, 44-50, 59, 76, 119-135, 139-145, 155-164, 174-206, 211-224, 229-247
+app/services/proxy_config_service.py                 27     10    63%   37-58
+app/services/rate_limit_rule_service.py              87     52    40%   41-42, 48-54, 63, 71, 80, 101-102, 114-136, 149-157, 168-175, 185-224, 229-241
+app/services/route_permission_service.py             58     27    53%   22, 26-27, 36-45, 50, 60-62, 70, 72-84, 89-92
+app/services/threat_rule_service.py                  47     19    60%   18, 26, 31, 39-41, 47, 49-56, 61-64
+app/services/user_service.py                         41     20    51%   27-45, 50-51, 61-66, 71-84, 89-96
+-------------------------------------------------------------------------------
+TOTAL                                              2444    553    77%
+
+28 files skipped due to complete coverage.
+cd reverse-proxy && go test -race ./... && go vet ./... && test -z "$(gofmt -l .)"
+?   	github.com/htunkhainglynn/aegis/reverse-proxy/cmd/proxy	[no test files]
+ok  	github.com/htunkhainglynn/aegis/reverse-proxy/internal/config	1.755s
+ok  	github.com/htunkhainglynn/aegis/reverse-proxy/internal/controlplane	1.988s
+ok  	github.com/htunkhainglynn/aegis/reverse-proxy/internal/middleware	2.527s
+?   	github.com/htunkhainglynn/aegis/reverse-proxy/internal/policypb	[no test files]
+ok  	github.com/htunkhainglynn/aegis/reverse-proxy/internal/proxy	3.166s
+Reverse proxy core coverage: 83.4%
+npm --prefix aegis-frontend run lint
+
+> aegis-dashboard@0.1.0 lint
+> eslint . --ignore-pattern dist --ignore-pattern .next
+
+npm --prefix aegis-frontend test
+
+> aegis-dashboard@0.1.0 test
+> npm run build && node --test tests/rendered-html.test.mjs
+
+
+> aegis-dashboard@0.1.0 build
+> WRANGLER_LOG_PATH=.wrangler/wrangler.log vinext build
+
+
+  vinext build  (Vite 8.0.13)
+
+[1/5] analyze client references...
+[2Ktransforming...✓ 144 modules transformed.
+rendering chunks...
+✓ built in 208ms
+[2/5] analyze server references...
+[2Ktransforming...✓ 72 modules transformed.
+rendering chunks...
+✓ built in 53ms
+[3/5] build rsc environment...
+[2Ktransforming...✓ 150 modules transformed.
+rendering chunks...
+computing gzip size...
+✓ built in 214ms
+[4/5] build client environment...
+[2Ktransforming...✓ 79 modules transformed.
+rendering chunks...
+computing gzip size...
+✓ built in 97ms
+[5/5] build ssr environment...
+[2Ktransforming...✓ 78 modules transformed.
+rendering chunks...
+computing gzip size...
+✓ built in 137ms
+[0m
+  Route (app)
+  ┌ ? /
+  ├ ? /analytics
+  ├ ? /api-keys
+  ├ ? /dashboard
+  ├ ? /ip-blocks
+  ├ ? /jwt-config
+  ├ ? /login
+  ├ ? /rate-limits
+  ├ ? /system
+  ├ ? /threat-rules
+  └ ? /users
+
+  ? Unknown
+
+  ? Some routes could not be classified. vinext currently uses static analysis
+    and cannot detect dynamic API usage (headers(), cookies(), etc.) at build time.
+    Automatic classification will be improved in a future release.
+
+  Build complete. Run `vinext start` to start the production server.
+
+✔ server-renders the Aegis login experience (69.047792ms)
+✔ role-gated navigation matches the permission matrix (1.447958ms)
+✔ authentication state stays in React memory (0.6095ms)
+✔ IP block management remains Admin-only in the dashboard (0.473917ms)
+✔ threat rule management remains Admin-only in the dashboard (0.427583ms)
+✔ analytics uses live role-protected Control Plane data (1.292583ms)
+ℹ tests 6
+ℹ suites 0
+ℹ pass 6
+ℹ fail 0
+ℹ cancelled 0
+ℹ skipped 0
+ℹ todo 0
+ℹ duration_ms 152.099708
+aegis-backend/.venv/bin/python -m pytest -q scripts/tests poc/echo-service/tests poc/attack-console/tests
+.............                                                            [100%]
+13 passed in 8.20s
